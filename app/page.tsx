@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { joiResolver } from "@hookform/resolvers/joi";
+import Joi from "joi";
 
 type DiveLog = {
   id: number;
@@ -10,40 +13,42 @@ type DiveLog = {
   date: string;
 };
 
+type FormValues = {
+  location: string;
+  depth: string;
+  duration: string;
+  date: string;
+};
+
+const schema = Joi.object<FormValues>({
+  location: Joi.string().trim().required().label("Location"),
+  depth: Joi.number().required().label("Depth"),
+  duration: Joi.number().required().label("Duration"),
+  date: Joi.string().required().label("Date"),
+});
+
+const defaultValues: FormValues = {
+  location: "",
+  depth: "",
+  duration: "",
+  date: new Date().toISOString().split("T")[0],
+};
+
 export default function Home() {
   const [logs, setLogs] = useState<DiveLog[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-
-  const [form, setForm] = useState({
-    location: "",
-    depth: "",
-    duration: "",
-    date: "",
-  });
-
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({
-    location: "",
-    depth: "",
-    duration: "",
-    date: "",
+
+  const addForm = useForm<FormValues>({
+    defaultValues,
+    mode: "onChange",
+    resolver: joiResolver(schema),
   });
-
-  const isValid =
-    form.location.trim() !== "" &&
-    form.depth.trim() !== "" &&
-    !isNaN(Number(form.depth)) &&
-    form.duration.trim() !== "" &&
-    !isNaN(Number(form.duration)) &&
-    form.date.trim() !== "";
-
-  const isEditValid =
-    editForm.location.trim() !== "" &&
-    editForm.depth.trim() !== "" &&
-    !isNaN(Number(editForm.depth)) &&
-    editForm.duration.trim() !== "" &&
-    !isNaN(Number(editForm.duration)) &&
-    editForm.date.trim() !== "";
+  const editForm = useForm<FormValues>({
+    defaultValues,
+    mode: "onChange",
+    resolver: joiResolver(schema),
+  });
 
   useEffect(() => {
     fetch("/api/logs")
@@ -51,39 +56,34 @@ export default function Home() {
       .then(setLogs);
   }, []);
 
-  const submit = async () => {
-    if (!isValid) return;
-
+  const submit = addForm.handleSubmit(async (data) => {
     const res = await fetch("/api/logs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        location: form.location,
-        depth: Number(form.depth),
-        duration: Number(form.duration),
-        date: form.date,
+        location: data.location,
+        depth: Number(data.depth),
+        duration: Number(data.duration),
+        date: data.date,
       }),
     });
-
     const newLog = await res.json();
     setLogs([...logs, newLog]);
-
-    setForm({ location: "", depth: "", duration: "", date: "" });
+    addForm.reset(defaultValues);
     setShowAddForm(false);
-  };
+  });
 
   const deleteLog = async (id: number) => {
     await fetch(`/api/logs/${id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
     });
-
     setLogs(logs.filter((log) => log.id !== id));
   };
 
   const startEdit = (log: DiveLog) => {
     setEditingId(log.id);
-    setEditForm({
+    editForm.reset({
       location: log.location,
       depth: String(log.depth),
       duration: String(log.duration),
@@ -91,42 +91,103 @@ export default function Home() {
     });
   };
 
-  const saveEdit = async () => {
-    if (!editingId || !isEditValid) return;
-
+  const saveEdit = editForm.handleSubmit(async (data) => {
+    if (!editingId) return;
     const res = await fetch(`/api/logs/${editingId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        location: editForm.location,
-        depth: Number(editForm.depth),
-        duration: Number(editForm.duration),
-        date: editForm.date,
+        location: data.location,
+        depth: Number(data.depth),
+        duration: Number(data.duration),
+        date: data.date,
       }),
     });
-
     const updated = await res.json();
-
     setLogs(logs.map((log) => (log.id === editingId ? updated : log)));
     setEditingId(null);
-  };
+  });
 
-  const Label = ({ children }: { children: string }) => (
-    <label style={{ fontWeight: 600, fontSize: 14, color: "#222" }}>
+  const Label = ({
+    children,
+    htmlFor,
+  }: {
+    children: string;
+    htmlFor: string;
+  }) => (
+    <label
+      htmlFor={htmlFor}
+      style={{ fontWeight: 600, fontSize: 14, color: "#222" }}
+    >
       {children} <span style={{ color: "red" }}>*</span>
     </label>
   );
 
-  const styledInput = (value: string, mustBeNumber = false) => {
-    const isEmpty = value.trim() === "";
-    const isInvalidNumber = mustBeNumber && isNaN(Number(value));
-    return {
-      ...inputStyle,
-      border:
-        isEmpty || isInvalidNumber ? "1px solid #e57373" : "1px solid #ccc",
-      boxShadow:
-        isEmpty || isInvalidNumber ? "0 0 4px rgba(255,0,0,0.3)" : "none",
-    };
+  const styledInput = (hasError: boolean) => ({
+    ...inputStyle,
+    border: hasError ? "1px solid #e57373" : "1px solid #ccc",
+    boxShadow: hasError ? "0 0 4px rgba(255,0,0,0.3)" : "none",
+  });
+
+  const FormFields = ({
+    form,
+  }: {
+    form: ReturnType<typeof useForm<FormValues>>;
+  }) => {
+    const {
+      register,
+      formState: { errors },
+    } = form;
+    return (
+      <div style={formGrid}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Label htmlFor="location">Location</Label>
+          <input
+            id="location"
+            placeholder="Location"
+            {...register("location")}
+            style={styledInput(!!errors.location)}
+          />
+          {errors.location && (
+            <span style={errorText}>{errors.location.message}</span>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Label htmlFor="depth">Depth (ft)</Label>
+          <input
+            id="depth"
+            placeholder="Depth (ft)"
+            {...register("depth")}
+            style={styledInput(!!errors.depth)}
+          />
+          {errors.depth && (
+            <span style={errorText}>{errors.depth.message}</span>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Label htmlFor="duration">Duration (min)</Label>
+          <input
+            id="duration"
+            placeholder="Duration (min)"
+            {...register("duration")}
+            style={styledInput(!!errors.duration)}
+          />
+          {errors.duration && (
+            <span style={errorText}>{errors.duration.message}</span>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Label htmlFor="date">Date</Label>
+          <input
+            id="date"
+            type="date"
+            {...register("date")}
+            style={styledInput(!!errors.date)}
+          />
+          {errors.date && <span style={errorText}>{errors.date.message}</span>}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -150,65 +211,27 @@ export default function Home() {
 
       {showAddForm && (
         <div style={card}>
-          <h2
-            style={{
-              marginTop: 0,
-              fontSize: 32,
-              color: "#1976d2",
-            }}
-          >
+          <h2 style={{ marginTop: 0, fontSize: 32, color: "#1976d2" }}>
             New Dive Entry
           </h2>
-
-          <div style={formGrid}>
-            <Label>Location</Label>
-            <input
-              placeholder="Location"
-              value={form.location}
-              onChange={(e) => setForm({ ...form, location: e.target.value })}
-              style={styledInput(form.location)}
-            />
-
-            <Label>Depth (ft)</Label>
-            <input
-              placeholder="Depth (ft)"
-              value={form.depth}
-              onChange={(e) => setForm({ ...form, depth: e.target.value })}
-              style={styledInput(form.depth, true)}
-            />
-
-            <Label>Duration (min)</Label>
-            <input
-              placeholder="Duration (min)"
-              value={form.duration}
-              onChange={(e) => setForm({ ...form, duration: e.target.value })}
-              style={styledInput(form.duration, true)}
-            />
-
-            <Label>Date</Label>
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
-              style={styledInput(form.date)}
-            />
-          </div>
-
+          <FormFields form={addForm} />
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
             <button
               onClick={submit}
-              disabled={!isValid}
+              disabled={!addForm.formState.isValid}
               style={{
                 ...primaryButton,
-                background: isValid ? "#2e7d32" : "#9e9e9e",
-                cursor: isValid ? "pointer" : "not-allowed",
+                background: addForm.formState.isValid ? "#2e7d32" : "#9e9e9e",
+                cursor: addForm.formState.isValid ? "pointer" : "not-allowed",
               }}
             >
               Save Dive
             </button>
-
             <button
-              onClick={() => setShowAddForm(false)}
+              onClick={() => {
+                addForm.reset(defaultValues);
+                setShowAddForm(false);
+              }}
               style={secondaryButton}
             >
               Cancel
@@ -222,84 +245,27 @@ export default function Home() {
           <li key={log.id} style={card}>
             {editingId === log.id ? (
               <>
-                {" "}
-                <div style={formGrid}>
-                  {" "}
-                  <div
-                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    {" "}
-                    <Label>Location</Label>{" "}
-                    <input
-                      value={editForm.location}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, location: e.target.value })
-                      }
-                      style={styledInput(editForm.location)}
-                    />{" "}
-                  </div>{" "}
-                  <div
-                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    {" "}
-                    <Label>Depth (ft)</Label>{" "}
-                    <input
-                      value={editForm.depth}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, depth: e.target.value })
-                      }
-                      style={styledInput(editForm.depth)}
-                    />{" "}
-                  </div>{" "}
-                  <div
-                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    {" "}
-                    <Label>Duration (min)</Label>{" "}
-                    <input
-                      value={editForm.duration}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, duration: e.target.value })
-                      }
-                      style={styledInput(editForm.duration)}
-                    />{" "}
-                  </div>{" "}
-                  <div
-                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    {" "}
-                    <Label>Date</Label>{" "}
-                    <input
-                      type="date"
-                      value={editForm.date}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, date: e.target.value })
-                      }
-                      style={styledInput(editForm.date)}
-                    />{" "}
-                  </div>{" "}
-                </div>{" "}
+                <FormFields form={editForm} />
                 <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-                  {" "}
                   <button
                     onClick={saveEdit}
-                    disabled={!isEditValid}
+                    disabled={!editForm.formState.isValid}
                     style={{
                       ...primaryButton,
-                      background: isEditValid ? "#2e7d32" : "#9e9e9e",
+                      background: editForm.formState.isValid
+                        ? "#2e7d32"
+                        : "#9e9e9e",
                     }}
                   >
-                    {" "}
-                    Save{" "}
-                  </button>{" "}
+                    Save
+                  </button>
                   <button
                     onClick={() => setEditingId(null)}
                     style={secondaryButton}
                   >
-                    {" "}
-                    Cancel{" "}
-                  </button>{" "}
-                </div>{" "}
+                    Cancel
+                  </button>
+                </div>
               </>
             ) : (
               <>
@@ -307,7 +273,6 @@ export default function Home() {
                 <p style={{ margin: "6px 0", color: "#444" }}>
                   {log.date} — {log.depth} ft — {log.duration} min
                 </p>
-
                 <div style={{ display: "flex", gap: 10 }}>
                   <button
                     onClick={() => startEdit(log)}
@@ -315,7 +280,6 @@ export default function Home() {
                   >
                     Edit
                   </button>
-
                   <button
                     onClick={() => deleteLog(log.id)}
                     style={dangerButtonSmall}
@@ -338,6 +302,12 @@ const inputStyle = {
   fontSize: 16,
   width: "100%",
   color: "#222",
+};
+
+const errorText = {
+  fontSize: 12,
+  color: "#e57373",
+  marginTop: 2,
 };
 
 const card = {

@@ -1,12 +1,11 @@
 import {
   useFormContext,
-  type FieldValues,
   type Path,
   type RegisterOptions,
 } from "react-hook-form";
 import { type CSSProperties } from "react";
 
-interface FieldProps<T extends FieldValues> {
+interface FieldProps<T extends object> {
   name: Path<T>;
   label: string;
   rules?: RegisterOptions<T>;
@@ -37,7 +36,7 @@ export function ErrorMessage({ message }: { message?: string }) {
   return <span style={styles.error}>{message}</span>;
 }
 
-export function Field<T extends FieldValues>({
+export function Field<T extends object>({
   name,
   label,
   rules,

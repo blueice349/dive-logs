@@ -3,30 +3,14 @@
 import { useEffect, useState } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
-import Joi from "joi";
 import { Field, Card, Button, FormGrid } from "@/components/ui/form";
+import {
+  type DiveLog,
+  type DiveLogBase,
+  diveLogBaseSchema,
+} from "@/app/api/logs/data";
 
-type DiveLog = {
-  id: number;
-  location: string;
-  depth: number;
-  duration: number;
-  date: string;
-};
-
-type FormValues = {
-  location: string;
-  depth: string;
-  duration: string;
-  date: string;
-};
-
-const schema = Joi.object<FormValues>({
-  location: Joi.string().trim().required().label("Location"),
-  depth: Joi.number().required().label("Depth"),
-  duration: Joi.number().required().label("Duration"),
-  date: Joi.string().required().label("Date"),
-});
+type FormValues = { [K in keyof DiveLogBase]: string };
 
 const defaultValues: FormValues = {
   location: "",
@@ -34,6 +18,13 @@ const defaultValues: FormValues = {
   duration: "",
   date: new Date().toISOString().split("T")[0],
 };
+
+const toPayload = (data: FormValues): DiveLogBase => ({
+  location: data.location,
+  depth: Number(data.depth),
+  duration: Number(data.duration),
+  date: data.date,
+});
 
 function DiveFormFields() {
   return (
@@ -83,22 +74,16 @@ function EditDiveForm({
       date: log.date,
     },
     mode: "onChange",
-    resolver: joiResolver(schema),
+    resolver: joiResolver(diveLogBaseSchema),
   });
 
   const handleSave = form.handleSubmit(async (data) => {
     const res = await fetch(`/api/logs/${log.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: data.location,
-        depth: Number(data.depth),
-        duration: Number(data.duration),
-        date: data.date,
-      }),
+      body: JSON.stringify(toPayload(data)),
     });
-    const updatedLog = await res.json();
-    onSave(updatedLog);
+    onSave(await res.json());
   });
 
   return (
@@ -129,7 +114,7 @@ export default function Home() {
   const addForm = useForm<FormValues>({
     defaultValues,
     mode: "onChange",
-    resolver: joiResolver(schema),
+    resolver: joiResolver(diveLogBaseSchema),
   });
 
   useEffect(() => {
@@ -142,12 +127,7 @@ export default function Home() {
     const res = await fetch("/api/logs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: data.location,
-        depth: Number(data.depth),
-        duration: Number(data.duration),
-        date: data.date,
-      }),
+      body: JSON.stringify(toPayload(data)),
     });
     const newLog = await res.json();
     setLogs((prev) => [...prev, newLog]);
@@ -227,7 +207,10 @@ export default function Home() {
                     {log.location}
                   </h3>
                   <p style={{ margin: "6px 0", color: "#444" }}>
-                    {log.date} — {log.depth} ft — {log.duration} min
+                    {log.date
+                      .split("T")[0]
+                      .replace(/(\d{4})-(\d{2})-(\d{2})/, "$2/$3/$1")}{" "}
+                    — {log.depth} ft — {log.duration} min
                   </p>
                   <div style={{ display: "flex", gap: 10 }}>
                     <Button size="sm" onClick={() => setEditingId(log.id)}>

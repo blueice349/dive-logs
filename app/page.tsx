@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import Joi from "joi";
+import { Field, Card, Button, FormGrid } from "@/components/ui/form";
 
 type DiveLog = {
   id: number;
@@ -34,17 +35,98 @@ const defaultValues: FormValues = {
   date: new Date().toISOString().split("T")[0],
 };
 
+function DiveFormFields() {
+  return (
+    <FormGrid cols={2}>
+      <Field<FormValues>
+        name="location"
+        label="Location"
+        placeholder="Location"
+        rules={{ required: true }}
+      />
+      <Field<FormValues>
+        name="depth"
+        label="Depth (ft)"
+        placeholder="Depth (ft)"
+        rules={{ required: true }}
+      />
+      <Field<FormValues>
+        name="duration"
+        label="Duration (min)"
+        placeholder="Duration (min)"
+        rules={{ required: true }}
+      />
+      <Field<FormValues>
+        name="date"
+        label="Date"
+        type="date"
+        rules={{ required: true }}
+      />
+    </FormGrid>
+  );
+}
+
+function EditDiveForm({
+  log,
+  onSave,
+  onCancel,
+}: {
+  log: DiveLog;
+  onSave: (updated: DiveLog) => void;
+  onCancel: () => void;
+}) {
+  const form = useForm<FormValues>({
+    defaultValues: {
+      location: log.location,
+      depth: String(log.depth),
+      duration: String(log.duration),
+      date: log.date,
+    },
+    mode: "onChange",
+    resolver: joiResolver(schema),
+  });
+
+  const handleSave = form.handleSubmit(async (data) => {
+    const res = await fetch(`/api/logs/${log.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: data.location,
+        depth: Number(data.depth),
+        duration: Number(data.duration),
+        date: data.date,
+      }),
+    });
+    const updatedLog = await res.json();
+    onSave(updatedLog);
+  });
+
+  return (
+    <FormProvider {...form}>
+      <DiveFormFields />
+      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+        <Button
+          variant="success"
+          size="sm"
+          onClick={handleSave}
+          disabled={!form.formState.isValid}
+        >
+          Save
+        </Button>
+        <Button variant="secondary" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </FormProvider>
+  );
+}
+
 export default function Home() {
   const [logs, setLogs] = useState<DiveLog[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const addForm = useForm<FormValues>({
-    defaultValues,
-    mode: "onChange",
-    resolver: joiResolver(schema),
-  });
-  const editForm = useForm<FormValues>({
     defaultValues,
     mode: "onChange",
     resolver: joiResolver(schema),
@@ -56,7 +138,7 @@ export default function Home() {
       .then(setLogs);
   }, []);
 
-  const submit = addForm.handleSubmit(async (data) => {
+  const handleAdd = addForm.handleSubmit(async (data) => {
     const res = await fetch("/api/logs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,126 +150,14 @@ export default function Home() {
       }),
     });
     const newLog = await res.json();
-    setLogs([...logs, newLog]);
+    setLogs((prev) => [...prev, newLog]);
     addForm.reset(defaultValues);
     setShowAddForm(false);
   });
 
-  const deleteLog = async (id: number) => {
-    await fetch(`/api/logs/${id}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-    });
-    setLogs(logs.filter((log) => log.id !== id));
-  };
-
-  const startEdit = (log: DiveLog) => {
-    setEditingId(log.id);
-    editForm.reset({
-      location: log.location,
-      depth: String(log.depth),
-      duration: String(log.duration),
-      date: log.date,
-    });
-  };
-
-  const saveEdit = editForm.handleSubmit(async (data) => {
-    if (!editingId) return;
-    const res = await fetch(`/api/logs/${editingId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: data.location,
-        depth: Number(data.depth),
-        duration: Number(data.duration),
-        date: data.date,
-      }),
-    });
-    const updated = await res.json();
-    setLogs(logs.map((log) => (log.id === editingId ? updated : log)));
-    setEditingId(null);
-  });
-
-  const Label = ({
-    children,
-    htmlFor,
-  }: {
-    children: string;
-    htmlFor: string;
-  }) => (
-    <label
-      htmlFor={htmlFor}
-      style={{ fontWeight: 600, fontSize: 14, color: "#222" }}
-    >
-      {children} <span style={{ color: "red" }}>*</span>
-    </label>
-  );
-
-  const styledInput = (hasError: boolean) => ({
-    ...inputStyle,
-    border: hasError ? "1px solid #e57373" : "1px solid #ccc",
-    boxShadow: hasError ? "0 0 4px rgba(255,0,0,0.3)" : "none",
-  });
-
-  const FormFields = ({
-    form,
-  }: {
-    form: ReturnType<typeof useForm<FormValues>>;
-  }) => {
-    const {
-      register,
-      formState: { errors },
-    } = form;
-    return (
-      <div style={formGrid}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <Label htmlFor="location">Location</Label>
-          <input
-            id="location"
-            placeholder="Location"
-            {...register("location")}
-            style={styledInput(!!errors.location)}
-          />
-          {errors.location && (
-            <span style={errorText}>{errors.location.message}</span>
-          )}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <Label htmlFor="depth">Depth (ft)</Label>
-          <input
-            id="depth"
-            placeholder="Depth (ft)"
-            {...register("depth")}
-            style={styledInput(!!errors.depth)}
-          />
-          {errors.depth && (
-            <span style={errorText}>{errors.depth.message}</span>
-          )}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <Label htmlFor="duration">Duration (min)</Label>
-          <input
-            id="duration"
-            placeholder="Duration (min)"
-            {...register("duration")}
-            style={styledInput(!!errors.duration)}
-          />
-          {errors.duration && (
-            <span style={errorText}>{errors.duration.message}</span>
-          )}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <Label htmlFor="date">Date</Label>
-          <input
-            id="date"
-            type="date"
-            {...register("date")}
-            style={styledInput(!!errors.date)}
-          />
-          {errors.date && <span style={errorText}>{errors.date.message}</span>}
-        </div>
-      </div>
-    );
+  const handleDelete = async (id: number) => {
+    await fetch(`/api/logs/${id}`, { method: "DELETE" });
+    setLogs((prev) => prev.filter((l) => l.id !== id));
   };
 
   return (
@@ -195,7 +165,7 @@ export default function Home() {
       style={{
         maxWidth: 700,
         margin: "40px auto",
-        padding: "20px",
+        padding: 20,
         fontFamily: "system-ui, sans-serif",
       }}
     >
@@ -204,164 +174,79 @@ export default function Home() {
       </h1>
 
       {!showAddForm && (
-        <button style={primaryButton} onClick={() => setShowAddForm(true)}>
-          ➕ Add Dive Log
-        </button>
+        <Button onClick={() => setShowAddForm(true)}>➕ Add Dive Log</Button>
       )}
 
       {showAddForm && (
-        <div style={card}>
-          <h2 style={{ marginTop: 0, fontSize: 32, color: "#1976d2" }}>
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: 24, color: "#1976d2" }}>
             New Dive Entry
           </h2>
-          <FormFields form={addForm} />
+          <FormProvider {...addForm}>
+            <DiveFormFields />
+          </FormProvider>
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-            <button
-              onClick={submit}
+            <Button
+              variant="success"
+              onClick={() => handleAdd()}
               disabled={!addForm.formState.isValid}
-              style={{
-                ...primaryButton,
-                background: addForm.formState.isValid ? "#2e7d32" : "#9e9e9e",
-                cursor: addForm.formState.isValid ? "pointer" : "not-allowed",
-              }}
             >
               Save Dive
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => {
                 addForm.reset(defaultValues);
                 setShowAddForm(false);
               }}
-              style={secondaryButton}
             >
               Cancel
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       <ul style={{ listStyle: "none", padding: 0, marginTop: 30 }}>
         {logs.map((log) => (
-          <li key={log.id} style={card}>
-            {editingId === log.id ? (
-              <>
-                <FormFields form={editForm} />
-                <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-                  <button
-                    onClick={saveEdit}
-                    disabled={!editForm.formState.isValid}
-                    style={{
-                      ...primaryButton,
-                      background: editForm.formState.isValid
-                        ? "#2e7d32"
-                        : "#9e9e9e",
-                    }}
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setEditingId(null)}
-                    style={secondaryButton}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 style={{ margin: 0, color: "#1565c0" }}>{log.location}</h3>
-                <p style={{ margin: "6px 0", color: "#444" }}>
-                  {log.date} — {log.depth} ft — {log.duration} min
-                </p>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button
-                    onClick={() => startEdit(log)}
-                    style={primaryButtonSmall}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deleteLog(log.id)}
-                    style={dangerButtonSmall}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </>
-            )}
+          <li key={log.id}>
+            <Card>
+              {editingId === log.id ? (
+                <EditDiveForm
+                  log={log}
+                  onSave={(updated) => {
+                    setLogs((prev) =>
+                      prev.map((l) => (l.id === updated.id ? updated : l))
+                    );
+                    setEditingId(null);
+                  }}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : (
+                <>
+                  <h3 style={{ margin: 0, color: "#1565c0" }}>
+                    {log.location}
+                  </h3>
+                  <p style={{ margin: "6px 0", color: "#444" }}>
+                    {log.date} — {log.depth} ft — {log.duration} min
+                  </p>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <Button size="sm" onClick={() => setEditingId(log.id)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleDelete(log.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </>
+              )}
+            </Card>
           </li>
         ))}
       </ul>
     </main>
   );
 }
-
-const inputStyle = {
-  padding: "10px 12px",
-  borderRadius: 6,
-  fontSize: 16,
-  width: "100%",
-  color: "#222",
-};
-
-const errorText = {
-  fontSize: 12,
-  color: "#e57373",
-  marginTop: 2,
-};
-
-const card = {
-  padding: 20,
-  borderRadius: 10,
-  border: "1px solid #ddd",
-  background: "white",
-  boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-  marginBottom: 20,
-};
-
-const formGrid = {
-  marginTop: 20,
-  display: "grid",
-  gridTemplateColumns: "2fr 2fr",
-  gap: 12,
-};
-
-const primaryButton = {
-  padding: "10px 16px",
-  borderRadius: 6,
-  border: "none",
-  background: "#1976d2",
-  color: "white",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const secondaryButton = {
-  padding: "10px 16px",
-  borderRadius: 6,
-  border: "1px solid #aaa",
-  background: "#f5f5f5",
-  color: "#333",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const primaryButtonSmall = {
-  padding: "6px 12px",
-  borderRadius: 6,
-  border: "none",
-  background: "#1976d2",
-  color: "white",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const dangerButtonSmall = {
-  padding: "6px 12px",
-  borderRadius: 6,
-  border: "none",
-  background: "#d32f2f",
-  color: "white",
-  fontWeight: 600,
-  cursor: "pointer",
-};

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { diveLogs, diveLogBaseSchema, type DiveLog } from "./data";
-
-let nextId = 1;
+import { diveLogBaseSchema } from "./data";
+import { getAllDiveLogs, insertDiveLog } from "../store";
 
 export async function GET() {
-  return NextResponse.json(diveLogs);
+  return NextResponse.json(getAllDiveLogs());
 }
 
 export async function POST(req: Request) {
@@ -17,12 +16,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const newLog: DiveLog = {
-    id: nextId++,
+  const newLog = insertDiveLog({
     ...value,
     date: value.date.split("T")[0],
-  };
-  diveLogs.push(newLog);
+  });
 
   return NextResponse.json(newLog, { status: 201 });
 }

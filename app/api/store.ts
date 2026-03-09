@@ -40,6 +40,10 @@ export const writeUsers = (users: User[]) => {
   transaction(users);
 };
 
+export const deleteUser = (id: number): void => {
+  db.prepare("DELETE FROM users WHERE id = ?").run(id);
+};
+
 export const getNextId = (): number => {
   const result = db.prepare("SELECT MAX(id) as maxId FROM users").get() as {
     maxId: number | null;

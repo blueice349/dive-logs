@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { findUserByEmail, updateUser, findUserById } from "../../store";
+import {
+  findUserByEmail,
+  updateUser,
+  findUserById,
+  deleteUser,
+} from "../../store";
 import Joi from "joi";
 
 const profileSchema = Joi.object({
@@ -39,4 +44,20 @@ export async function PUT(
 
   const updated = updateUser(id, value);
   return NextResponse.json(updated);
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: rawId } = await params;
+  const id = Number(rawId);
+
+  const user = findUserById(id);
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  deleteUser(id);
+  return NextResponse.json({ message: "Account deleted" });
 }

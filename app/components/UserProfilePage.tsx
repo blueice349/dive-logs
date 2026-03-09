@@ -203,11 +203,30 @@ export default function UserProfilePage({
   user,
   onBack,
   onUpdate,
+  onDelete,
 }: {
   user: User;
   onBack: () => void;
   onUpdate: (u: User) => void;
+  onDelete: () => void;
 }) {
+  const handleDelete = async () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete your account? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
+    if (res.ok) {
+      onDelete();
+    } else {
+      const { error } = await res
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
+      alert(error ?? "Failed to delete account.");
+    }
+  };
+
   return (
     <main
       style={{
@@ -234,6 +253,20 @@ export default function UserProfilePage({
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <ProfileForm user={user} onUpdate={onUpdate} />
         <PasswordForm user={user} />
+
+        {/* Danger Zone */}
+        <Card>
+          <h2 style={{ marginTop: 0, fontSize: 20, color: "#d32f2f" }}>
+            Danger Zone
+          </h2>
+          <p style={{ color: "#555", marginBottom: 16 }}>
+            Permanently delete your account and all associated data. This action
+            cannot be undone.
+          </p>
+          <Button variant="danger" onClick={handleDelete}>
+            Delete Account
+          </Button>
+        </Card>
       </div>
     </main>
   );

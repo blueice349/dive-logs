@@ -157,6 +157,7 @@ export default function DiveLogPage({
         user={user}
         onBack={() => setShowProfile(false)}
         onUpdate={onUpdateUser}
+        onDelete={onLogout}
       />
     );
   }

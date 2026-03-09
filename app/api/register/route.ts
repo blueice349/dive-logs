@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcrypt";
 import { authSchema } from "../auth/data";
 import { findUserByEmail, insertUser } from "../store";
+
+const SALT_ROUNDS = 12;
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -18,9 +21,11 @@ export async function POST(req: Request) {
     );
   }
 
+  const hashedPassword = await bcrypt.hash(value.password, SALT_ROUNDS);
+
   const user = insertUser({
     email: value.email,
-    password: value.password,
+    password: hashedPassword,
     firstName: value.firstName,
     lastName: value.lastName,
     phone: value.phone,

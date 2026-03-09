@@ -165,108 +165,154 @@ export default function DiveLogPage({
   return (
     <main
       style={{
-        maxWidth: 700,
-        margin: "40px auto",
-        padding: 20,
         fontFamily: "system-ui, sans-serif",
+        minHeight: "100vh",
+        background: "#f0f4f8",
       }}
     >
       <div
         style={{
+          position: "relative",
+          height: 220,
+          backgroundImage:
+            "url(https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=1400&auto=format&fit=crop)",
+          backgroundSize: "cover",
+          backgroundPosition: "center 40%",
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 30,
+          alignItems: "flex-end",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: 32 }}>Dive Log</h1>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Button variant="secondary" onClick={() => setShowProfile(true)}>
-            👤 Profile
-          </Button>
-          <Button variant="danger" onClick={onLogout}>
-            Logout
-          </Button>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,20,60,0.75))",
+          }}
+        />
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: 700,
+            margin: "0 auto",
+            padding: "0 20px 20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 36,
+                color: "white",
+                textShadow: "0 2px 8px rgba(0,0,0,0.5)",
+              }}
+            >
+              🤿 Dive Log
+            </h1>
+            <p
+              style={{
+                margin: "4px 0 0",
+                color: "rgba(255,255,255,0.85)",
+                fontSize: 14,
+              }}
+            >
+              Welcome back, {user.firstName}
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Button variant="secondary" onClick={() => setShowProfile(true)}>
+              👤 Profile
+            </Button>
+            <Button variant="danger" onClick={onLogout}>
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
 
-      {!showAddForm && (
-        <Button onClick={() => setShowAddForm(true)}>➕ Add Dive Log</Button>
-      )}
+      <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
+        {!showAddForm && (
+          <Button onClick={() => setShowAddForm(true)}>➕ Add Dive Log</Button>
+        )}
 
-      {showAddForm && (
-        <Card>
-          <h2 style={{ marginTop: 0, fontSize: 24, color: "#1976d2" }}>
-            New Dive Entry
-          </h2>
-          <FormProvider {...addForm}>
-            <DiveFormFields />
-          </FormProvider>
-          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-            <Button
-              variant="success"
-              onClick={() => handleAdd()}
-              disabled={!addForm.formState.isValid}
-            >
-              Save Dive
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                addForm.reset(defaultValues);
-                setShowAddForm(false);
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </Card>
-      )}
+        {showAddForm && (
+          <Card>
+            <h2 style={{ marginTop: 0, fontSize: 24, color: "#1976d2" }}>
+              New Dive Entry
+            </h2>
+            <FormProvider {...addForm}>
+              <DiveFormFields />
+            </FormProvider>
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <Button
+                variant="success"
+                onClick={() => handleAdd()}
+                disabled={!addForm.formState.isValid}
+              >
+                Save Dive
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  addForm.reset(defaultValues);
+                  setShowAddForm(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </Card>
+        )}
 
-      <ul style={{ listStyle: "none", padding: 0, marginTop: 30 }}>
-        {logs.map((log) => (
-          <li key={log.id}>
-            <Card>
-              {editingId === log.id ? (
-                <EditDiveForm
-                  log={log}
-                  onSave={(updated) => {
-                    setLogs((prev) =>
-                      prev.map((l) => (l.id === updated.id ? updated : l))
-                    );
-                    setEditingId(null);
-                  }}
-                  onCancel={() => setEditingId(null)}
-                />
-              ) : (
-                <>
-                  <h3 style={{ margin: 0, color: "#1565c0" }}>
-                    {log.location}
-                  </h3>
-                  <p style={{ margin: "6px 0", color: "#444" }}>
-                    {log.date
-                      .split("T")[0]
-                      .replace(/(\d{4})-(\d{2})-(\d{2})/, "$2/$3/$1")}{" "}
-                    — {log.depth} ft — {log.duration} min
-                  </p>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <Button size="sm" onClick={() => setEditingId(log.id)}>
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => handleDelete(log.id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </>
-              )}
-            </Card>
-          </li>
-        ))}
-      </ul>
+        <ul style={{ listStyle: "none", padding: 0, marginTop: 24 }}>
+          {logs.map((log) => (
+            <li key={log.id}>
+              <Card>
+                {editingId === log.id ? (
+                  <EditDiveForm
+                    log={log}
+                    onSave={(updated) => {
+                      setLogs((prev) =>
+                        prev.map((l) => (l.id === updated.id ? updated : l))
+                      );
+                      setEditingId(null);
+                    }}
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : (
+                  <>
+                    <h3 style={{ margin: 0, color: "#1565c0" }}>
+                      {log.location}
+                    </h3>
+                    <p style={{ margin: "6px 0", color: "#444" }}>
+                      {log.date
+                        .split("T")[0]
+                        .replace(/(\d{4})-(\d{2})-(\d{2})/, "$2/$3/$1")}{" "}
+                      — {log.depth} ft — {log.duration} min
+                    </p>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <Button size="sm" onClick={() => setEditingId(log.id)}>
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => handleDelete(log.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </Card>
+            </li>
+          ))}
+        </ul>
+      </div>
     </main>
   );
 }

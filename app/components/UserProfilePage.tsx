@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Card, Button, FormGrid } from "@/components/ui/form";
@@ -42,13 +43,8 @@ const passwordSchema = Joi.object({
     .messages({ "any.only": "Passwords must match" }),
 });
 
-function ProfileForm({
-  user,
-  onUpdate,
-}: {
-  user: User;
-  onUpdate: (u: User) => void;
-}) {
+function ProfileForm({ user }: { user: User }) {
+  const router = useRouter();
   const form = useForm<ProfileFormValues>({
     defaultValues: {
       firstName: user.firstName,
@@ -67,8 +63,7 @@ function ProfileForm({
       body: JSON.stringify(data),
     });
     if (res.ok) {
-      const updated = await res.json();
-      onUpdate(updated);
+      router.refresh();
       alert("Profile updated successfully!");
     } else {
       const { error } = await res
@@ -199,17 +194,9 @@ function PasswordForm({ user }: { user: User }) {
   );
 }
 
-export default function UserProfilePage({
-  user,
-  onBack,
-  onUpdate,
-  onDelete,
-}: {
-  user: User;
-  onBack: () => void;
-  onUpdate: (u: User) => void;
-  onDelete: () => void;
-}) {
+export default function UserProfilePage({ user }: { user: User }) {
+  const router = useRouter();
+
   const handleDelete = async () => {
     const confirmed = window.confirm(
       "Are you sure you want to delete your account? This cannot be undone."
@@ -218,7 +205,8 @@ export default function UserProfilePage({
 
     const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
     if (res.ok) {
-      onDelete();
+      await fetch("/api/logout", { method: "POST" });
+      router.push("/login");
     } else {
       const { error } = await res
         .json()
@@ -245,13 +233,13 @@ export default function UserProfilePage({
         }}
       >
         <h1 style={{ margin: 0, fontSize: 32 }}>My Profile</h1>
-        <Button variant="secondary" onClick={onBack}>
+        <Button variant="secondary" onClick={() => router.push("/dive-log")}>
           ← Back to Dive Log
         </Button>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        <ProfileForm user={user} onUpdate={onUpdate} />
+        <ProfileForm user={user} />
         <PasswordForm user={user} />
 
         {/* Danger Zone */}

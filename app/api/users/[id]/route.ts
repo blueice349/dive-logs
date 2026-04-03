@@ -43,6 +43,9 @@ export async function PUT(
   }
 
   const updated = updateUser(id, value);
+  if (!updated) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
   return NextResponse.json(updated);
 }
 

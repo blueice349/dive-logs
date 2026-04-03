@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { authSchema } from "../auth/data";
 import { findUserByEmail, insertUser } from "../store";
+import { setSession } from "@/app/lib/session";
 
 const SALT_ROUNDS = 12;
 
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Hash the plain text password before storing
   const hashedPassword = await bcrypt.hash(value.password, SALT_ROUNDS);
 
   const user = insertUser({
@@ -31,5 +33,6 @@ export async function POST(req: Request) {
     phone: value.phone,
   });
 
+  await setSession(user.id);
   return NextResponse.json(user, { status: 201 });
 }

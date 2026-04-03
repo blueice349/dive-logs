@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Button, Card, FormGrid } from "@/components/ui/form";
-import { authSchema, loginSchema, type User } from "@/app/api/auth/data";
+import { authSchema, loginSchema } from "@/app/api/auth/data";
 import Joi from "joi";
 
 type LoginFormValues = { email: string; password: string };
@@ -25,12 +26,12 @@ const registerSchema = authSchema.keys({
 function AuthFormInner({
   isRegistering,
   onSwitch,
-  onAuthSuccess,
 }: {
   isRegistering: boolean;
   onSwitch: () => void;
-  onAuthSuccess: (user: User) => void;
 }) {
+  const router = useRouter();
+
   const form = useForm<LoginFormValues | RegisterFormValues>({
     defaultValues: isRegistering
       ? {
@@ -57,8 +58,7 @@ function AuthFormInner({
     });
 
     if (res.ok) {
-      const userData = await res.json();
-      onAuthSuccess(userData);
+      router.push("/dive-log");
     } else {
       const { error } = await res
         .json()
@@ -160,11 +160,7 @@ function AuthFormInner({
   );
 }
 
-export default function AuthForm({
-  onAuthSuccess,
-}: {
-  onAuthSuccess: () => void;
-}) {
+export default function AuthForm() {
   const [isRegistering, setIsRegistering] = useState(false);
 
   return (
@@ -172,7 +168,6 @@ export default function AuthForm({
       key={isRegistering ? "register" : "login"}
       isRegistering={isRegistering}
       onSwitch={() => setIsRegistering((prev) => !prev)}
-      onAuthSuccess={onAuthSuccess}
     />
   );
 }

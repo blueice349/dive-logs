@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { loginSchema } from "../auth/data";
 import { findUserByEmail } from "../store";
+import { setSession } from "@/app/lib/session";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Compare the plain text input against the stored hash
   const passwordMatch = await bcrypt.compare(value.password, user.password);
   if (!passwordMatch) {
     return NextResponse.json(
@@ -27,5 +29,6 @@ export async function POST(req: Request) {
     );
   }
 
+  await setSession(user.id);
   return NextResponse.json(user);
 }

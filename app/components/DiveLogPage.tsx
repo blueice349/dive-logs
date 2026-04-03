@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Card, Button, FormGrid } from "@/components/ui/form";
@@ -10,7 +11,6 @@ import {
   diveLogBaseSchema,
 } from "@/app/api/logs/data";
 import { type User } from "@/app/api/auth/data";
-import UserProfilePage from "./UserProfilePage";
 
 type FormValues = { [K in keyof DiveLogBase]: string };
 
@@ -108,19 +108,11 @@ function EditDiveForm({
   );
 }
 
-export default function DiveLogPage({
-  user,
-  onLogout,
-  onUpdateUser,
-}: {
-  user: User;
-  onLogout: () => void;
-  onUpdateUser: (u: User) => void;
-}) {
+export default function DiveLogPage({ user }: { user: User }) {
+  const router = useRouter();
   const [logs, setLogs] = useState<DiveLog[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [showProfile, setShowProfile] = useState(false);
 
   const addForm = useForm<FormValues>({
     defaultValues,
@@ -130,7 +122,7 @@ export default function DiveLogPage({
 
   useEffect(() => {
     fetch("/api/logs")
-      .then((res) => res.json())
+      .then((r) => r.json())
       .then(setLogs);
   }, []);
 
@@ -146,21 +138,15 @@ export default function DiveLogPage({
     setShowAddForm(false);
   });
 
-  const handleDelete = async (id: number) => {
+  const handleDeleteLog = async (id: number) => {
     await fetch(`/api/logs/${id}`, { method: "DELETE" });
     setLogs((prev) => prev.filter((l) => l.id !== id));
   };
 
-  if (showProfile) {
-    return (
-      <UserProfilePage
-        user={user}
-        onBack={() => setShowProfile(false)}
-        onUpdate={onUpdateUser}
-        onDelete={onLogout}
-      />
-    );
-  }
+  const handleLogout = async () => {
+    await fetch("/api/logout", { method: "POST" });
+    router.push("/login");
+  };
 
   return (
     <main
@@ -224,10 +210,13 @@ export default function DiveLogPage({
             </p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <Button variant="secondary" onClick={() => setShowProfile(true)}>
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/user-profile")}
+            >
               👤 Profile
             </Button>
-            <Button variant="danger" onClick={onLogout}>
+            <Button variant="danger" onClick={handleLogout}>
               Logout
             </Button>
           </div>
@@ -301,7 +290,7 @@ export default function DiveLogPage({
                       <Button
                         size="sm"
                         variant="danger"
-                        onClick={() => handleDelete(log.id)}
+                        onClick={() => handleDeleteLog(log.id)}
                       >
                         Delete
                       </Button>

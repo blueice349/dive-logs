@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { findUserById } from "@/app/api/store";
-import { type User } from "@/app/api/auth/data";
+import { type User } from "@/app/types/user";
 
 const COOKIE_NAME = "user_id";
 const SESSION_DURATION = 60 * 30; // 30 minutes

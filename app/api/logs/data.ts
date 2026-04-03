@@ -1,13 +1,15 @@
 import Joi from "joi";
 
-export type DiveLogBase = Omit<DiveLog, "id">;
-
-export type DiveLog = {
-  id: number;
+export type DiveLogBase = {
   location: string;
   depth: number;
   duration: number;
   date: string;
+};
+
+export type DiveLog = DiveLogBase & {
+  id: number;
+  userId: number;
 };
 
 export const diveLogBaseSchema = Joi.object<DiveLogBase>({

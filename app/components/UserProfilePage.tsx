@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import AppHeader from "./AppHeader";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Card, Button, FormGrid } from "@/components/ui/form";
-import { User, authSchema } from "@/app/api/auth/data";
+import { type User } from "@/app/types/user";
 import Joi from "joi";
 
 type ProfileFormValues = {
@@ -216,29 +217,12 @@ export default function UserProfilePage({ user }: { user: User }) {
   };
 
   return (
-    <main
-      style={{
-        maxWidth: 700,
-        margin: "40px auto",
-        padding: 20,
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 30,
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 32 }}>My Profile</h1>
-        <Button variant="secondary" onClick={() => router.push("/dive-log")}>
-          ← Back to Dive Log
-        </Button>
-      </div>
+    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
+      <AppHeader user={user} />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
+        <h1 style={{ margin: "0 0 24px", fontSize: 28 }}>My Profile</h1>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <ProfileForm user={user} />
         <PasswordForm user={user} />
 
@@ -255,6 +239,7 @@ export default function UserProfilePage({ user }: { user: User }) {
             Delete Account
           </Button>
         </Card>
+        </div>
       </div>
     </main>
   );

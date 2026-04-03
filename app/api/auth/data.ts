@@ -1,14 +1,5 @@
 import Joi from "joi";
 
-export type User = {
-  id: number;
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-};
-
 export const loginSchema = Joi.object({
   email: Joi.string()
     .email({ tlds: { allow: false } })

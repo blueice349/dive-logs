@@ -1,7 +1,7 @@
 import "server-only";
 import Database from "better-sqlite3";
 import path from "path";
-import { User } from "./auth/data";
+import { User } from "../types/user";
 import { DiveLog, DiveLogBase } from "./logs/data";
 
 const db = new Database(path.join(process.cwd(), "data.db"));
@@ -20,9 +20,17 @@ db.exec(`
     location TEXT NOT NULL,
     depth REAL NOT NULL,
     duration REAL NOT NULL,
-    date TEXT NOT NULL
+    date TEXT NOT NULL,
+    userId INTEGER REFERENCES users(id)
   );
 `);
+
+// Add userId column to existing databases that predate this migration
+try {
+  db.exec("ALTER TABLE dive_logs ADD COLUMN userId INTEGER REFERENCES users(id)");
+} catch {
+  // Column already exists — nothing to do
+}
 
 export const readUsers = (): User[] => {
   return db.prepare("SELECT * FROM users").all() as User[];
@@ -81,28 +89,40 @@ export const findUserById = (id: number): User | null => {
 export const getAllDiveLogs = (): DiveLog[] =>
   db.prepare("SELECT * FROM dive_logs ORDER BY date DESC").all() as DiveLog[];
 
-export const insertDiveLog = (log: DiveLogBase): DiveLog => {
+export const getDiveLogsForUser = (userId: number): DiveLog[] =>
+  db
+    .prepare("SELECT * FROM dive_logs WHERE userId = ? ORDER BY date DESC")
+    .all(userId) as DiveLog[];
+
+export const insertDiveLog = (log: DiveLogBase, userId: number): DiveLog => {
   const result = db
     .prepare(
-      "INSERT INTO dive_logs (location, depth, duration, date) VALUES (@location, @depth, @duration, @date)"
+      "INSERT INTO dive_logs (location, depth, duration, date, userId) VALUES (@location, @depth, @duration, @date, @userId)"
     )
-    .run(log);
-  return { id: Number(result.lastInsertRowid), ...log };
+    .run({ ...log, userId });
+  return { id: Number(result.lastInsertRowid), userId, ...log };
 };
 
-export const updateDiveLog = (id: number, log: DiveLogBase): DiveLog | null => {
-  db.prepare(
-    "UPDATE dive_logs SET location = @location, depth = @depth, duration = @duration, date = @date WHERE id = @id"
-  ).run({ ...log, id });
+export const updateDiveLog = (
+  id: number,
+  userId: number,
+  log: DiveLogBase
+): DiveLog | null => {
+  const changes = db
+    .prepare(
+      "UPDATE dive_logs SET location = @location, depth = @depth, duration = @duration, date = @date WHERE id = @id AND userId = @userId"
+    )
+    .run({ ...log, id, userId }).changes;
+  if (changes === 0) return null;
   return db
     .prepare("SELECT * FROM dive_logs WHERE id = ?")
     .get(id) as DiveLog | null;
 };
 
-export const deleteDiveLog = (id: number): DiveLog | null => {
+export const deleteDiveLog = (id: number, userId: number): DiveLog | null => {
   const log = db
-    .prepare("SELECT * FROM dive_logs WHERE id = ?")
-    .get(id) as DiveLog | null;
+    .prepare("SELECT * FROM dive_logs WHERE id = ? AND userId = ?")
+    .get(id, userId) as DiveLog | null;
   if (log) db.prepare("DELETE FROM dive_logs WHERE id = ?").run(id);
   return log;
 };

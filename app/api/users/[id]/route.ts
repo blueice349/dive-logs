@@ -5,6 +5,7 @@ import {
   findUserById,
   deleteUser,
 } from "../../store";
+import { getSession } from "@/app/lib/session";
 import Joi from "joi";
 
 const profileSchema = Joi.object({
@@ -25,8 +26,18 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id: rawId } = await params;
   const id = Number(rawId);
+
+  if (session.id !== id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await req.json();
 
   const { error, value } = profileSchema.validate(body, { abortEarly: false });
@@ -53,8 +64,17 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id: rawId } = await params;
   const id = Number(rawId);
+
+  if (session.id !== id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const user = findUserById(id);
   if (!user) {

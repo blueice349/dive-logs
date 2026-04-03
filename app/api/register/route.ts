@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { authSchema } from "../auth/data";
 import { findUserByEmail, insertUser } from "../store";
 import { setSession } from "@/app/lib/session";
+import { toPublicUser } from "@/app/types/user";
 
 const SALT_ROUNDS = 12;
 
@@ -34,5 +35,5 @@ export async function POST(req: Request) {
   });
 
   await setSession(user.id);
-  return NextResponse.json(user, { status: 201 });
+  return NextResponse.json(toPublicUser(user), { status: 201 });
 }

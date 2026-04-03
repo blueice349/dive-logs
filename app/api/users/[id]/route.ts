@@ -6,21 +6,7 @@ import {
   deleteUser,
 } from "../../store";
 import { getSession } from "@/app/lib/session";
-import Joi from "joi";
-
-const profileSchema = Joi.object({
-  firstName: Joi.string().min(1).required().label("First Name"),
-  lastName: Joi.string().min(1).required().label("Last Name"),
-  email: Joi.string()
-    .email({ tlds: { allow: false } })
-    .required()
-    .label("Email"),
-  phone: Joi.string()
-    .pattern(/^\+?[\d\s\-().]{7,15}$/)
-    .required()
-    .label("Phone Number")
-    .messages({ "string.pattern.base": "Please enter a valid phone number" }),
-});
+import { profileSchema } from "../data";
 
 export async function PUT(
   req: Request,
@@ -33,6 +19,9 @@ export async function PUT(
 
   const { id: rawId } = await params;
   const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+  }
 
   if (session.id !== id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -45,6 +34,11 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  const existing = findUserById(id);
+  if (!existing) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
   const emailTaken = findUserByEmail(value.email);
   if (emailTaken && Number(emailTaken.id) !== Number(id)) {
     return NextResponse.json(
@@ -54,9 +48,6 @@ export async function PUT(
   }
 
   const updated = updateUser(id, value);
-  if (!updated) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
   return NextResponse.json(updated);
 }
 
@@ -71,6 +62,9 @@ export async function DELETE(
 
   const { id: rawId } = await params;
   const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+  }
 
   if (session.id !== id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

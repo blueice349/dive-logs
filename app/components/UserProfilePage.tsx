@@ -6,38 +6,13 @@ import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Card, Button, FormGrid } from "@/components/ui/form";
 import { type User } from "@/app/types/user";
+import { profileSchema, passwordSchema, type ProfileValues, type PasswordValues } from "@/app/api/users/data";
 import Joi from "joi";
 
-type ProfileFormValues = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-};
+type ProfileFormValues = ProfileValues;
+type PasswordFormValues = PasswordValues & { confirmPassword: string };
 
-type PasswordFormValues = {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
-};
-
-const profileSchema = Joi.object({
-  firstName: Joi.string().min(1).required().label("First Name"),
-  lastName: Joi.string().min(1).required().label("Last Name"),
-  email: Joi.string()
-    .email({ tlds: { allow: false } })
-    .required()
-    .label("Email"),
-  phone: Joi.string()
-    .pattern(/^\+?[\d\s\-().]{7,15}$/)
-    .required()
-    .label("Phone Number")
-    .messages({ "string.pattern.base": "Please enter a valid phone number" }),
-});
-
-const passwordSchema = Joi.object({
-  currentPassword: Joi.string().required().label("Current Password"),
-  newPassword: Joi.string().min(4).required().label("New Password"),
+const passwordFormSchema = passwordSchema.keys({
   confirmPassword: Joi.string()
     .valid(Joi.ref("newPassword"))
     .required()
@@ -129,7 +104,7 @@ function PasswordForm({ user }: { user: User }) {
       confirmPassword: "",
     },
     mode: "onChange",
-    resolver: joiResolver(passwordSchema),
+    resolver: joiResolver(passwordFormSchema),
   });
 
   const handleSave = form.handleSubmit(async (data) => {

@@ -36,4 +36,11 @@ async function main() {
   console.log(`\nDone. ${migrated} password(s) migrated.`);
 }
 
-main();
+main()
+  .catch((err) => {
+    console.error("Migration failed:", err);
+    process.exit(1);
+  })
+  .finally(() => {
+    db.close();
+  });

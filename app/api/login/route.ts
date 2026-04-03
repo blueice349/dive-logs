@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { loginSchema } from "../auth/data";
 import { findUserByEmail } from "../store";
 import { setSession } from "@/app/lib/session";
+import { toPublicUser } from "@/app/types/user";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -30,5 +31,5 @@ export async function POST(req: Request) {
   }
 
   await setSession(user.id);
-  return NextResponse.json(user);
+  return NextResponse.json(toPublicUser(user));
 }

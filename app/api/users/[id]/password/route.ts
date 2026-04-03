@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 import { findUserById, updateUser } from "../../../store";
 import { getSession } from "@/app/lib/session";
-import Joi from "joi";
+import { passwordSchema } from "../../data";
 import bcrypt from "bcrypt";
-
-const passwordSchema = Joi.object({
-  currentPassword: Joi.string().required().label("Current Password"),
-  newPassword: Joi.string().min(4).required().label("New Password"),
-});
 
 export async function PUT(
   req: Request,
@@ -20,6 +15,9 @@ export async function PUT(
 
   const { id: rawId } = await params;
   const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+  }
 
   if (session.id !== id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

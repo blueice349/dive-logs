@@ -32,31 +32,8 @@ try {
   // Column already exists — nothing to do
 }
 
-export const readUsers = (): User[] => {
-  return db.prepare("SELECT * FROM users").all() as User[];
-};
-
-export const writeUsers = (users: User[]) => {
-  const insert = db.prepare(
-    "INSERT OR REPLACE INTO users (id, email, password, firstName, lastName, phone) VALUES (@id, @email, @password, @firstName, @lastName, @phone)"
-  );
-  const deleteAll = db.prepare("DELETE FROM users");
-  const transaction = db.transaction((u: User[]) => {
-    deleteAll.run();
-    u.forEach((user) => insert.run(user));
-  });
-  transaction(users);
-};
-
 export const deleteUser = (id: number): void => {
   db.prepare("DELETE FROM users WHERE id = ?").run(id);
-};
-
-export const getNextId = (): number => {
-  const result = db.prepare("SELECT MAX(id) as maxId FROM users").get() as {
-    maxId: number | null;
-  };
-  return (result.maxId ?? 0) + 1;
 };
 
 export const insertUser = (user: Omit<User, "id">): User => {

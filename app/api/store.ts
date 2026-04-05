@@ -44,7 +44,12 @@ export const listUsers = (): Omit<User, "password">[] =>
     .all() as Omit<User, "password">[];
 
 export const deleteUser = (id: number): void => {
-  db.prepare("DELETE FROM users WHERE id = ?").run(id);
+  const deleteLogs = db.prepare("DELETE FROM dive_logs WHERE userId = ?");
+  const deleteUserStmt = db.prepare("DELETE FROM users WHERE id = ?");
+  db.transaction(() => {
+    deleteLogs.run(id);
+    deleteUserStmt.run(id);
+  })();
 };
 
 export const insertUser = (user: Omit<User, "id">): User => {
@@ -101,6 +106,22 @@ export const updateDiveLog = (
       "UPDATE dive_logs SET location = @location, depth = @depth, duration = @duration, date = @date WHERE id = @id AND userId = @userId"
     )
     .run({ ...log, id, userId }).changes;
+  if (changes === 0) return null;
+  return db
+    .prepare("SELECT * FROM dive_logs WHERE id = ?")
+    .get(id) as DiveLog | null;
+};
+
+export const adminUpdateDiveLog = (
+  id: number,
+  log: DiveLogBase,
+  targetUserId: number
+): DiveLog | null => {
+  const changes = db
+    .prepare(
+      "UPDATE dive_logs SET location = @location, depth = @depth, duration = @duration, date = @date, userId = @targetUserId WHERE id = @id"
+    )
+    .run({ ...log, id, targetUserId }).changes;
   if (changes === 0) return null;
   return db
     .prepare("SELECT * FROM dive_logs WHERE id = ?")

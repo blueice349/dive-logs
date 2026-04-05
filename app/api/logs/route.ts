@@ -26,14 +26,20 @@ export async function POST(req: Request) {
 
   const { error, value } = diveLogBaseSchema.validate(body, {
     abortEarly: false,
+    stripUnknown: true,
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  const targetUserId =
+    user.isAdmin && Number.isInteger(body.userId) && body.userId > 0
+      ? body.userId
+      : user.id;
+
   const newLog = insertDiveLog(
     { ...value, date: value.date.split("T")[0] },
-    user.id
+    targetUserId
   );
 
   return NextResponse.json(newLog, { status: 201 });

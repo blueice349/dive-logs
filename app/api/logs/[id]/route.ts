@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { diveLogBaseSchema } from "../data";
-import { updateDiveLog, deleteDiveLog } from "../../store";
+import { updateDiveLog, adminUpdateDiveLog, deleteDiveLog } from "../../store";
 import { getSession } from "@/app/lib/session";
 
 export async function PUT(
@@ -18,15 +18,20 @@ export async function PUT(
   const body = await req.json();
   const { error, value } = diveLogBaseSchema.validate(body, {
     abortEarly: false,
+    stripUnknown: true,
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const updated = updateDiveLog(numericId, user.id, {
-    ...value,
-    date: value.date.split("T")[0],
-  });
+  const logData = { ...value, date: value.date.split("T")[0] };
+  const updated = user.isAdmin
+    ? adminUpdateDiveLog(
+        numericId,
+        logData,
+        Number.isInteger(body.userId) && body.userId > 0 ? body.userId : user.id
+      )
+    : updateDiveLog(numericId, user.id, logData);
   if (!updated) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

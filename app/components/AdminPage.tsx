@@ -6,7 +6,76 @@ import { joiResolver } from "@hookform/resolvers/joi";
 import { Card, Button, Field, FormGrid } from "@/components/ui/form";
 import { type PublicUser } from "@/app/types/user";
 import { profileSchema, type ProfileValues } from "@/app/api/users/data";
+import Joi from "joi";
+
+type CreateUserValues = ProfileValues & { password: string };
+
+const createUserSchema = profileSchema.keys({
+  password: Joi.string().min(4).required().label("Password"),
+});
 import AppHeader from "./AppHeader";
+
+function CreateUserModal({
+  onSave,
+  onClose,
+}: {
+  onSave: (user: PublicUser) => void;
+  onClose: () => void;
+}) {
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const form = useForm<CreateUserValues>({
+    defaultValues: { firstName: "", lastName: "", email: "", phone: "", password: "" },
+    mode: "onChange",
+    resolver: joiResolver(createUserSchema),
+  });
+
+  const handleSubmit = form.handleSubmit(async (data: CreateUserValues) => {
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...data, isAdmin: isAdmin ? 1 : 0 }),
+    });
+    if (res.ok) onSave(await res.json());
+    else {
+      const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
+      alert(error ?? "Failed to create user.");
+    }
+  });
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: "white", borderRadius: 12, padding: 28, width: "100%", maxWidth: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}
+      >
+        <h2 style={{ margin: "0 0 20px", fontSize: 20, color: "#1565c0" }}>Create User</h2>
+        <FormProvider {...form}>
+          <FormGrid cols={2}>
+            <Field<CreateUserValues> name="firstName" label="First Name" placeholder="First Name" rules={{ required: true }} />
+            <Field<CreateUserValues> name="lastName" label="Last Name" placeholder="Last Name" rules={{ required: true }} />
+            <Field<CreateUserValues> name="email" label="Email" placeholder="Email" rules={{ required: true }} />
+            <Field<CreateUserValues> name="phone" label="Phone" placeholder="Phone" type="tel" rules={{ required: true }} />
+          </FormGrid>
+          <div style={{ marginTop: 12 }}>
+            <Field<CreateUserValues> name="password" label="Password" type="password" placeholder="Password" rules={{ required: true }} />
+          </div>
+        </FormProvider>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 14, cursor: "pointer", color: "#222" }}>
+          <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
+          Admin
+        </label>
+        <div style={{ display: "flex", gap: 10, marginTop: 24, justifyContent: "flex-end" }}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="success" onClick={handleSubmit} disabled={!form.formState.isValid}>Create User</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EditUserModal({
   user,
@@ -102,6 +171,7 @@ function EditUserModal({
 export default function AdminPage({ currentUser }: { currentUser: PublicUser }) {
   const [users, setUsers] = useState<PublicUser[]>([]);
   const [editingUser, setEditingUser] = useState<PublicUser | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/users")
@@ -121,12 +191,20 @@ export default function AdminPage({ currentUser }: { currentUser: PublicUser }) 
     setEditingUser(null);
   };
 
+  const handleCreated = (user: PublicUser) => {
+    setUsers((prev) => [...prev, user]);
+    setShowCreate(false);
+  };
+
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
       <AppHeader user={currentUser as PublicUser & { password: string }} />
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
-        <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>All Users</h1>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h1 style={{ margin: 0, fontSize: 28 }}>All Users</h1>
+          <Button onClick={() => setShowCreate(true)}>➕ Create User</Button>
+        </div>
 
         <Card>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -166,6 +244,10 @@ export default function AdminPage({ currentUser }: { currentUser: PublicUser }) 
           </table>
         </Card>
       </div>
+
+      {showCreate && (
+        <CreateUserModal onSave={handleCreated} onClose={() => setShowCreate(false)} />
+      )}
 
       {editingUser && (
         <EditUserModal

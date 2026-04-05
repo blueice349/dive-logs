@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Button, FormGrid } from "@/components/ui/form";
 import { type DiveLog, type DiveLogBase, diveLogBaseSchema } from "@/app/api/logs/data";
+import { type PublicUser } from "@/app/types/user";
 
 type FormValues = { [K in keyof DiveLogBase]: string };
 
@@ -15,11 +17,23 @@ const toPayload = (data: FormValues): DiveLogBase => ({
 });
 
 type Props =
-  | { mode: "add"; onSave: (log: DiveLog) => void; onClose: () => void }
-  | { mode: "edit"; log: DiveLog; onSave: (log: DiveLog) => void; onClose: () => void };
+  | { mode: "add"; currentUser: PublicUser; onSave: (log: DiveLog) => void; onClose: () => void }
+  | { mode: "edit"; log: DiveLog; currentUser: PublicUser; onSave: (log: DiveLog) => void; onClose: () => void };
 
 export default function DiveLogModal(props: Props) {
-  const { mode, onSave, onClose } = props;
+  const { mode, currentUser, onSave, onClose } = props;
+
+  const [users, setUsers] = useState<PublicUser[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number>(
+    mode === "edit" ? (props.log.userId ?? currentUser.id) : currentUser.id
+  );
+
+  useEffect(() => {
+    if (!currentUser.isAdmin) return;
+    fetch("/api/admin/users")
+      .then((r) => r.json())
+      .then(setUsers);
+  }, [currentUser.isAdmin]);
 
   const form = useForm<FormValues>({
     defaultValues:
@@ -43,10 +57,14 @@ export default function DiveLogModal(props: Props) {
   const handleSubmit = form.handleSubmit(async (data) => {
     const url = mode === "edit" ? `/api/logs/${props.log.id}` : "/api/logs";
     const method = mode === "edit" ? "PUT" : "POST";
+    const payload = {
+      ...toPayload(data),
+      ...(currentUser.isAdmin ? { userId: selectedUserId } : {}),
+    };
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(toPayload(data)),
+      body: JSON.stringify(payload),
     });
     onSave(await res.json());
   });
@@ -79,6 +97,33 @@ export default function DiveLogModal(props: Props) {
         <h2 style={{ margin: "0 0 20px", fontSize: 20, color: "#1565c0" }}>
           {mode === "edit" ? "Edit Dive Log" : "New Dive Entry"}
         </h2>
+
+        {currentUser.isAdmin && users.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontWeight: 600, fontSize: 14, color: "#222", marginBottom: 4 }}>
+              User
+            </label>
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(Number(e.target.value))}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 6,
+                border: "1px solid #ccc",
+                fontSize: 16,
+                color: "#222",
+                boxSizing: "border-box",
+              }}
+            >
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.firstName} {u.lastName} ({u.email})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <FormProvider {...form}>
           <FormGrid cols={2}>

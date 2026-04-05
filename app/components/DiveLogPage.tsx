@@ -103,13 +103,14 @@ export default function DiveLogPage({ user }: { user: User }) {
       </div>
 
       {showAdd && (
-        <DiveLogModal mode="add" onSave={handleAdded} onClose={() => setShowAdd(false)} />
+        <DiveLogModal mode="add" currentUser={user} onSave={handleAdded} onClose={() => setShowAdd(false)} />
       )}
 
       {editingLog && (
         <DiveLogModal
           mode="edit"
           log={editingLog}
+          currentUser={user}
           onSave={handleUpdated}
           onClose={() => setEditingLog(null)}
         />

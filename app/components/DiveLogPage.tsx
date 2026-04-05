@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { Card, Button } from "@/components/ui/form";
 import { type DiveLog } from "@/app/api/logs/data";
-import { type User } from "@/app/types/user";
+import { type PublicUser } from "@/app/types/user";
 import AppHeader from "./AppHeader";
 import DiveLogModal from "./DiveLogModal";
 
 type Filter = "mine" | "all";
 
-export default function DiveLogPage({ user }: { user: User }) {
+export default function DiveLogPage({ user }: { user: PublicUser }) {
   const [logs, setLogs] = useState<DiveLog[]>([]);
   const [filter, setFilter] = useState<Filter>("mine");
   const [showAdd, setShowAdd] = useState(false);

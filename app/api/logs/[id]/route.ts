@@ -26,12 +26,12 @@ export async function PUT(
 
   const logData = { ...value, date: value.date.split("T")[0] };
   const updated = user.isAdmin
-    ? adminUpdateDiveLog(
+    ? await adminUpdateDiveLog(
         numericId,
         logData,
         Number.isInteger(body.userId) && body.userId > 0 ? body.userId : user.id
       )
-    : updateDiveLog(numericId, user.id, logData);
+    : await updateDiveLog(numericId, user.id, logData);
   if (!updated) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -51,7 +51,7 @@ export async function DELETE(
   const { id } = await context.params;
   const numericId = Number(id);
 
-  const deleted = deleteDiveLog(numericId, user.id);
+  const deleted = await deleteDiveLog(numericId, user.id);
   if (!deleted) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

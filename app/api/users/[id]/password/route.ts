@@ -30,7 +30,7 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const user = findUserById(id);
+  const user = await findUserById(id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -44,6 +44,6 @@ export async function PUT(
   }
 
   const hashed = await bcrypt.hash(value.newPassword, 12);
-  updateUser(id, { password: hashed });
+  await updateUser(id, { password: hashed });
   return NextResponse.json({ success: true });
 }

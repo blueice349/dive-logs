@@ -11,8 +11,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const logs =
     searchParams.get("filter") === "all"
-      ? getAllDiveLogs()
-      : getDiveLogsForUser(user.id);
+      ? await getAllDiveLogs()
+      : await getDiveLogsForUser(user.id);
   return NextResponse.json(logs);
 }
 
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       ? body.userId
       : user.id;
 
-  const newLog = insertDiveLog(
+  const newLog = await insertDiveLog(
     { ...value, date: value.date.split("T")[0] },
     targetUserId
   );

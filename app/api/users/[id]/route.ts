@@ -34,12 +34,12 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const existing = findUserById(id);
+  const existing = await findUserById(id);
   if (!existing) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const emailTaken = findUserByEmail(value.email);
+  const emailTaken = await findUserByEmail(value.email);
   if (emailTaken && Number(emailTaken.id) !== Number(id)) {
     return NextResponse.json(
       { error: "Email already in use" },
@@ -47,7 +47,7 @@ export async function PUT(
     );
   }
 
-  const updated = updateUser(id, value);
+  const updated = await updateUser(id, value);
   return NextResponse.json(updated);
 }
 
@@ -70,11 +70,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const user = findUserById(id);
+  const user = await findUserById(id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  deleteUser(id);
+  await deleteUser(id);
   return NextResponse.json({ message: "Account deleted" });
 }

@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const user = findUserByEmail(value.email);
+  const user = await findUserByEmail(value.email);
   if (!user) {
     return NextResponse.json(
       { error: "Invalid email or password" },

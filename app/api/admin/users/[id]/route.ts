@@ -26,7 +26,7 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
   }
 
-  const existing = findUserById(id);
+  const existing = await findUserById(id);
   if (!existing) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -37,12 +37,12 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const emailTaken = findUserByEmail(value.email);
+  const emailTaken = await findUserByEmail(value.email);
   if (emailTaken && emailTaken.id !== id) {
     return NextResponse.json({ error: "Email already in use" }, { status: 409 });
   }
 
-  const updated = updateUser(id, value);
+  const updated = await updateUser(id, value);
   return NextResponse.json(updated);
 }
 
@@ -64,11 +64,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
   }
 
-  const user = findUserById(id);
+  const user = await findUserById(id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  deleteUser(id);
+  await deleteUser(id);
   return NextResponse.json({ message: "User deleted" });
 }

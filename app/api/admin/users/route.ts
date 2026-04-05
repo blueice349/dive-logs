@@ -26,13 +26,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const existing = findUserByEmail(value.email);
+  const existing = await findUserByEmail(value.email);
   if (existing) {
     return NextResponse.json({ error: "Email already registered" }, { status: 409 });
   }
 
   const hashed = await bcrypt.hash(value.password, 12);
-  const user = insertUser({
+  const user = await insertUser({
     email: value.email,
     password: hashed,
     firstName: value.firstName,
@@ -52,5 +52,5 @@ export async function GET() {
   if (!session.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  return NextResponse.json(listUsers());
+  return NextResponse.json(await listUsers());
 }

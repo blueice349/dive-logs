@@ -5,6 +5,7 @@ export type User = {
   firstName: string;
   lastName: string;
   phone: string;
+  isAdmin: number; // SQLite INTEGER: 0 or 1
 };
 
 export type PublicUser = Omit<User, "password">;

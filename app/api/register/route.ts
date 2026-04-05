@@ -32,6 +32,7 @@ export async function POST(req: Request) {
     firstName: value.firstName,
     lastName: value.lastName,
     phone: value.phone,
+    isAdmin: 0,
   });
 
   await setSession(user.id);

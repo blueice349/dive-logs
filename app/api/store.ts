@@ -32,13 +32,24 @@ try {
   // Column already exists — nothing to do
 }
 
+try {
+  db.exec("ALTER TABLE users ADD COLUMN isAdmin INTEGER NOT NULL DEFAULT 0");
+} catch {
+  // Column already exists — nothing to do
+}
+
+export const listUsers = (): Omit<User, "password">[] =>
+  db
+    .prepare("SELECT id, email, firstName, lastName, phone, isAdmin FROM users ORDER BY id")
+    .all() as Omit<User, "password">[];
+
 export const deleteUser = (id: number): void => {
   db.prepare("DELETE FROM users WHERE id = ?").run(id);
 };
 
 export const insertUser = (user: Omit<User, "id">): User => {
   const stmt = db.prepare(
-    "INSERT INTO users (email, password, firstName, lastName, phone) VALUES (@email, @password, @firstName, @lastName, @phone)"
+    "INSERT INTO users (email, password, firstName, lastName, phone, isAdmin) VALUES (@email, @password, @firstName, @lastName, @phone, @isAdmin)"
   );
   const result = stmt.run(user);
   return { id: Number(result.lastInsertRowid), ...user };

@@ -49,7 +49,7 @@ export function Field<T extends object>({
     formState: { errors },
   } = useFormContext<T>();
 
-  const error = errors[name]?.message as string | undefined;
+  const error = (errors as Record<string, { message?: string }>)[name as string]?.message;
 
   return (
     <div style={styles.fieldWrapper}>
@@ -122,6 +122,10 @@ export function FormGrid({
   children: React.ReactNode;
   cols?: 1 | 2 | 3;
 }) {
+  // 2-column grids collapse to 1 column on mobile via CSS class
+  if (cols === 2) {
+    return <div className="form-grid-2">{children}</div>;
+  }
   return (
     <div
       style={{

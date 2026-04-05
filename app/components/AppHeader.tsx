@@ -1,14 +1,14 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { type User } from "@/app/types/user";
+import { type PublicUser } from "@/app/types/user";
 
 const NAV_LINKS = [
   { label: "Dive Log", href: "/dive-log" },
   { label: "Profile", href: "/user-profile" },
 ];
 
-export default function AppHeader({ user }: { user: User }) {
+export default function AppHeader({ user }: { user: PublicUser }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -81,7 +81,7 @@ export default function AppHeader({ user }: { user: User }) {
 
         {/* User + logout */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 14 }}>
+          <span className="header-greeting" style={{ color: "rgba(255,255,255,0.8)", fontSize: 14 }}>
             Hi, {user.firstName}
           </span>
           <button

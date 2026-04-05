@@ -48,7 +48,7 @@ export default function DiveLogPage({ user }: { user: User }) {
       <AppHeader user={user} />
 
       <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div className="dive-log-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ display: "flex", background: "#e0e7ef", borderRadius: 8, padding: 3, gap: 2 }}>
             {(["mine", "all"] as Filter[]).map((f) => (
               <button

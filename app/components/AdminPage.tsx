@@ -6,6 +6,7 @@ import { joiResolver } from "@hookform/resolvers/joi";
 import { Card, Button, Field, FormGrid } from "@/components/ui/form";
 import { type PublicUser } from "@/app/types/user";
 import { profileSchema, type ProfileValues } from "@/app/api/users/data";
+import AppHeader from "./AppHeader";
 import Joi from "joi";
 
 type CreateUserValues = ProfileValues & { password: string };
@@ -13,7 +14,6 @@ type CreateUserValues = ProfileValues & { password: string };
 const createUserSchema = profileSchema.keys({
   password: Joi.string().min(4).required().label("Password"),
 });
-import AppHeader from "./AppHeader";
 
 function CreateUserModal({
   onSave,
@@ -198,7 +198,7 @@ export default function AdminPage({ currentUser }: { currentUser: PublicUser }) 
 
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
-      <AppHeader user={currentUser as PublicUser & { password: string }} />
+      <AppHeader user={currentUser} />
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>

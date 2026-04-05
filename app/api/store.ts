@@ -23,6 +23,11 @@ db.exec(`
     date TEXT NOT NULL,
     userId INTEGER REFERENCES users(id)
   );
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    userId INTEGER NOT NULL REFERENCES users(id),
+    expiresAt INTEGER NOT NULL
+  );
 `);
 
 // Add userId column to existing databases that predate this migration
@@ -61,9 +66,11 @@ export const insertUser = (user: Omit<User, "id">): User => {
 };
 
 export const updateUser = (id: number, data: Partial<User>): User | null => {
-  const fields = Object.keys(data)
-    .map((k) => `${k} = @${k}`)
-    .join(", ");
+  const keys = Object.keys(data);
+  if (keys.length === 0) {
+    return db.prepare("SELECT * FROM users WHERE id = ?").get(id) as User | null;
+  }
+  const fields = keys.map((k) => `${k} = @${k}`).join(", ");
   db.prepare(`UPDATE users SET ${fields} WHERE id = @id`).run({ ...data, id });
   return db.prepare("SELECT * FROM users WHERE id = ?").get(id) as User | null;
 };
@@ -76,6 +83,26 @@ export const findUserByEmail = (email: string): User | null => {
 
 export const findUserById = (id: number): User | null => {
   return db.prepare("SELECT * FROM users WHERE id = ?").get(id) as User | null;
+};
+
+// Session helpers
+export const createSession = (userId: number, ttlSeconds: number): string => {
+  const token = crypto.randomUUID();
+  const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+  db.prepare("INSERT INTO sessions (token, userId, expiresAt) VALUES (?, ?, ?)").run(token, userId, expiresAt);
+  return token;
+};
+
+export const findSession = (token: string): User | null => {
+  const now = Math.floor(Date.now() / 1000);
+  const row = db.prepare(
+    "SELECT users.* FROM sessions JOIN users ON sessions.userId = users.id WHERE sessions.token = ? AND sessions.expiresAt > ?"
+  ).get(token, now) as User | null;
+  return row;
+};
+
+export const deleteSession = (token: string): void => {
+  db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
 };
 
 // Dive log helpers

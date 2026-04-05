@@ -5,7 +5,7 @@ import AppHeader from "./AppHeader";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Card, Button, FormGrid } from "@/components/ui/form";
-import { type User } from "@/app/types/user";
+import { type PublicUser } from "@/app/types/user";
 import { profileSchema, passwordSchema, type ProfileValues, type PasswordValues } from "@/app/api/users/data";
 import Joi from "joi";
 
@@ -19,7 +19,7 @@ const passwordFormSchema = passwordSchema.keys({
     .messages({ "any.only": "Passwords must match" }),
 });
 
-function ProfileForm({ user }: { user: User }) {
+function ProfileForm({ user }: { user: PublicUser }) {
   const router = useRouter();
   const form = useForm<ProfileFormValues>({
     defaultValues: {
@@ -96,7 +96,7 @@ function ProfileForm({ user }: { user: User }) {
   );
 }
 
-function PasswordForm({ user }: { user: User }) {
+function PasswordForm({ user }: { user: PublicUser }) {
   const form = useForm<PasswordFormValues>({
     defaultValues: {
       currentPassword: "",
@@ -170,7 +170,7 @@ function PasswordForm({ user }: { user: User }) {
   );
 }
 
-export default function UserProfilePage({ user }: { user: User }) {
+export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
   const router = useRouter();
 
   const handleDelete = async () => {

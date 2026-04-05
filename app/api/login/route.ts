@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
-import { loginSchema } from "../auth/data";
+import { loginSchema } from "@/app/lib/auth";
 import { findUserByEmail } from "../store";
 import { setSession } from "@/app/lib/session";
 import { toPublicUser } from "@/app/types/user";

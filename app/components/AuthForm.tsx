@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Button, Card, FormGrid } from "@/components/ui/form";
-import { authSchema, loginSchema } from "@/app/api/auth/data";
+import { authSchema, loginSchema } from "@/app/lib/auth";
 import Joi from "joi";
 
 type LoginFormValues = { email: string; password: string };

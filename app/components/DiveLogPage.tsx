@@ -36,9 +36,21 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
 
   const handleDelete = async () => {
     if (!deletingLog) return;
-    await fetch(`/api/logs/${deletingLog.id}`, { method: "DELETE" });
-    setLogs((prev) => prev.filter((l) => l.id !== deletingLog.id));
-    setDeletingLog(null);
+    const res = await fetch(`/api/logs/${deletingLog.id}`, { method: "DELETE" });
+    if (res.status === 401) {
+      setDeletingLog(null);
+      alert("You are not authorized to delete this log.");
+    } else if (res.status === 404) {
+      setDeletingLog(null);
+      alert("This dive log could not be found. It may have already been deleted.");
+      setLogs((prev) => prev.filter((l) => l.id !== deletingLog.id));
+    } else if (!res.ok) {
+      setDeletingLog(null);
+      alert("Failed to delete dive log. Please try again.");
+    } else {
+      setLogs((prev) => prev.filter((l) => l.id !== deletingLog.id));
+      setDeletingLog(null);
+    }
   };
 
   return (
@@ -186,12 +198,17 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
                     )}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <Button size="sm" onClick={() => setEditingLog(log)}>
+                    <Button
+                      size="sm"
+                      disabled={!user.isAdmin && log.userId !== user.id}
+                      onClick={() => setEditingLog(log)}
+                    >
                       Edit
                     </Button>
                     <Button
                       size="sm"
                       variant="danger"
+                      disabled={!user.isAdmin && log.userId !== user.id}
                       onClick={() => setDeletingLog(log)}
                     >
                       Delete

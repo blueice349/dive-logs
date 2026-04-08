@@ -189,7 +189,7 @@ export default function DiveLogModal(props: Props) {
           <p style={{ margin: "16px 0 8px", fontWeight: 600, fontSize: 13, color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" }}>Notes</p>
           <FormGrid cols={2}>
             <SelectField name="rating" label="Rating">
-              <option value="">— Select —</option>
+              <option value="" disabled>— Select —</option>
               <option value="5">★★★★★ (5)</option>
               <option value="4">★★★★☆ (4)</option>
               <option value="3">★★★☆☆ (3)</option>

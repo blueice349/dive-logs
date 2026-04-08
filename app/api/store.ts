@@ -116,7 +116,7 @@ export const findUserByEmail = async (email: string): Promise<User | null> => {
   await dbReady;
   const result = await db.execute({
     sql: "SELECT * FROM users WHERE LOWER(email) = ?",
-    args: [email],
+    args: [email.toLowerCase()],
   });
   return result.rows[0] ? row<User>(result.rows[0]) : null;
 };

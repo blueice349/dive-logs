@@ -9,7 +9,7 @@ export type DiveLogBase = {
   duration: number;
   date: string;
   buddy?: string;
-  diveType?: string;
+  diveType?: DiveType;
   visibility?: number;
   waterTemp?: number;
   tankStart?: number;
@@ -31,7 +31,7 @@ export const diveLogBaseSchema = Joi.object<DiveLogBase>({
   duration: Joi.number().positive().required().label("Duration"),
   date: Joi.string().isoDate().required().label("Date"),
   buddy: Joi.string().trim().optional().allow("").label("Buddy"),
-  diveType: Joi.string().trim().optional().allow("").label("Dive Type"),
+  diveType: Joi.string().valid(...DIVE_TYPES).optional().allow("").label("Dive Type"),
   visibility: Joi.number().positive().optional().allow(null, "").label("Visibility"),
   waterTemp: Joi.number().optional().allow(null, "").label("Water Temp"),
   tankStart: Joi.number().positive().optional().allow(null, "").label("Tank Start"),

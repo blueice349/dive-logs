@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/form";
 
 export default function ConfirmModal({
@@ -12,12 +13,20 @@ export default function ConfirmModal({
   title: string;
   message: string;
   confirmLabel?: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    await onConfirm();
+    setSubmitting(false);
+  };
+
   return (
     <div
-      onClick={onClose}
+      onClick={submitting ? undefined : onClose}
       style={{
         position: "fixed",
         inset: 0,
@@ -47,11 +56,11 @@ export default function ConfirmModal({
           {message}
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button variant="danger" onClick={onConfirm}>
-            {confirmLabel}
+          <Button variant="danger" onClick={handleConfirm} disabled={submitting}>
+            {submitting ? "Deleting…" : confirmLabel}
           </Button>
         </div>
       </div>

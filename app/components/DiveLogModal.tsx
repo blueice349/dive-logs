@@ -206,7 +206,7 @@ export default function DiveLogModal(props: Props) {
 
         <div style={{ display: "flex", gap: 10, padding: "16px 28px", borderTop: "1px solid #eee", justifyContent: "flex-end", flexShrink: 0 }}>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="success" onClick={handleSubmit} disabled={!form.formState.isValid}>
+          <Button variant="success" onClick={handleSubmit} disabled={!form.formState.isValid || (mode === "edit" && !form.formState.isDirty)}>
             {mode === "edit" ? "Save Changes" : "Save Dive"}
           </Button>
         </div>

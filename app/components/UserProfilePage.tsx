@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "./AppHeader";
+import ConfirmModal from "./ConfirmModal";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Card, Button, FormGrid } from "@/components/ui/form";
@@ -172,13 +174,9 @@ function PasswordForm({ user }: { user: PublicUser }) {
 
 export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
   const router = useRouter();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete your account? This cannot be undone."
-    );
-    if (!confirmed) return;
-
     const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
     if (res.ok) {
       await fetch("/api/logout", { method: "POST" });
@@ -210,12 +208,22 @@ export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
             Permanently delete your account and all associated data. This action
             cannot be undone.
           </p>
-          <Button variant="danger" onClick={handleDelete}>
+          <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
             Delete Account
           </Button>
         </Card>
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title="Delete Account"
+          message="Are you sure you want to delete your account? This cannot be undone."
+          confirmLabel="Delete Account"
+          onConfirm={handleDelete}
+          onClose={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </main>
   );
 }

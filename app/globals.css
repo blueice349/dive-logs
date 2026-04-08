@@ -33,6 +33,11 @@ body {
   margin-top: 16px;
 }
 
+.admin-actions {
+  display: flex;
+  gap: 8px;
+}
+
 @media (max-width: 520px) {
   .form-grid-2 {
     grid-template-columns: 1fr;
@@ -43,9 +48,20 @@ body {
     display: none;
   }
 
+  /* Shrink nav link padding so logout button isn't pushed off screen */
+  .header-nav button {
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+  }
+
   /* Stack the filter toggle + add button on very small screens */
   .dive-log-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  /* Stack admin Edit/Delete buttons vertically on small screens */
+  .admin-actions {
+    flex-direction: column !important;
   }
 }

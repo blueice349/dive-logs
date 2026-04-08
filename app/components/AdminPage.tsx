@@ -7,6 +7,7 @@ import { Card, Button, Field, FormGrid } from "@/components/ui/form";
 import { type PublicUser } from "@/app/types/user";
 import { profileSchema, type ProfileValues } from "@/app/api/users/data";
 import AppHeader from "./AppHeader";
+import ConfirmModal from "./ConfirmModal";
 import Joi from "joi";
 
 type CreateUserValues = ProfileValues & { password: string };
@@ -171,6 +172,7 @@ function EditUserModal({
 export default function AdminPage({ currentUser }: { currentUser: PublicUser }) {
   const [users, setUsers] = useState<PublicUser[]>([]);
   const [editingUser, setEditingUser] = useState<PublicUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<PublicUser | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
@@ -179,11 +181,15 @@ export default function AdminPage({ currentUser }: { currentUser: PublicUser }) 
       .then(setUsers);
   }, []);
 
-  const handleDelete = async (user: PublicUser) => {
-    if (!window.confirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`)) return;
-    const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
-    if (res.ok) setUsers((prev) => prev.filter((u) => u.id !== user.id));
-    else alert("Failed to delete user.");
+  const handleDelete = async () => {
+    if (!deletingUser) return;
+    const res = await fetch(`/api/admin/users/${deletingUser.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
+      setDeletingUser(null);
+    } else {
+      alert("Failed to delete user.");
+    }
   };
 
   const handleSaved = (updated: PublicUser) => {
@@ -233,9 +239,9 @@ export default function AdminPage({ currentUser }: { currentUser: PublicUser }) 
                   <td style={td}>{user.phone}</td>
                   <td style={td}>{user.isAdmin ? "✓" : ""}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div className="admin-actions">
                       <Button size="sm" onClick={() => setEditingUser(user)}>Edit</Button>
-                      <Button size="sm" variant="danger" onClick={() => handleDelete(user)}>Delete</Button>
+                      <Button size="sm" variant="danger" onClick={() => setDeletingUser(user)}>Delete</Button>
                     </div>
                   </td>
                 </tr>
@@ -254,6 +260,15 @@ export default function AdminPage({ currentUser }: { currentUser: PublicUser }) 
           user={editingUser}
           onSave={handleSaved}
           onClose={() => setEditingUser(null)}
+        />
+      )}
+
+      {deletingUser && (
+        <ConfirmModal
+          title="Delete User"
+          message={`Are you sure you want to delete ${deletingUser.firstName} ${deletingUser.lastName}? This cannot be undone.`}
+          onConfirm={handleDelete}
+          onClose={() => setDeletingUser(null)}
         />
       )}
     </main>

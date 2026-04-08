@@ -15,7 +15,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const existing = await findUserByEmail(value.email);
+  const email = value.email.toLowerCase();
+
+  const existing = await findUserByEmail(email);
   if (existing) {
     return NextResponse.json(
       { error: "Email already registered" },
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
   const hashedPassword = await bcrypt.hash(value.password, SALT_ROUNDS);
 
   const user = await insertUser({
-    email: value.email,
+    email,
     password: hashedPassword,
     firstName: value.firstName,
     lastName: value.lastName,

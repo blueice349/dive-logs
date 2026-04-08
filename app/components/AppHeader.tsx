@@ -54,7 +54,7 @@ export default function AppHeader({ user }: { user: PublicUser }) {
         </span>
 
         {/* Nav links */}
-        <nav style={{ display: "flex", gap: 4, flex: 1 }}>
+        <nav className="header-nav" style={{ display: "flex", gap: 4, flex: 1 }}>
           {[...NAV_LINKS, ...(user.isAdmin ? [{ label: "Admin", href: "/admin" }] : [])].map(({ label, href }) => {
             const active = pathname === href;
             return (

@@ -27,7 +27,15 @@ const dbReady = (async () => {
         depth REAL NOT NULL,
         duration REAL NOT NULL,
         date TEXT NOT NULL,
-        userId INTEGER REFERENCES users(id)
+        userId INTEGER REFERENCES users(id),
+        buddy TEXT,
+        diveType TEXT,
+        visibility REAL,
+        waterTemp REAL,
+        tankStart REAL,
+        tankEnd REAL,
+        notes TEXT,
+        rating INTEGER
       )`,
       `CREATE TABLE IF NOT EXISTS sessions (
         token TEXT PRIMARY KEY,
@@ -42,6 +50,14 @@ const dbReady = (async () => {
   for (const sql of [
     "ALTER TABLE dive_logs ADD COLUMN userId INTEGER REFERENCES users(id)",
     "ALTER TABLE users ADD COLUMN isAdmin INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE dive_logs ADD COLUMN buddy TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN diveType TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN visibility REAL",
+    "ALTER TABLE dive_logs ADD COLUMN waterTemp REAL",
+    "ALTER TABLE dive_logs ADD COLUMN tankStart REAL",
+    "ALTER TABLE dive_logs ADD COLUMN tankEnd REAL",
+    "ALTER TABLE dive_logs ADD COLUMN notes TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN rating INTEGER",
   ]) {
     try {
       await db.execute(sql);
@@ -99,8 +115,8 @@ export const updateUser = async (id: number, data: Partial<User>): Promise<User 
 export const findUserByEmail = async (email: string): Promise<User | null> => {
   await dbReady;
   const result = await db.execute({
-    sql: "SELECT * FROM users WHERE email = ?",
-    args: [email],
+    sql: "SELECT * FROM users WHERE LOWER(email) = ?",
+    args: [email.toLowerCase()],
   });
   return result.rows[0] ? row<User>(result.rows[0]) : null;
 };
@@ -141,14 +157,16 @@ export const deleteSession = async (token: string): Promise<void> => {
 // Dive log helpers
 export const getAllDiveLogs = async (): Promise<DiveLog[]> => {
   await dbReady;
-  const result = await db.execute("SELECT * FROM dive_logs ORDER BY date DESC");
+  const result = await db.execute(
+    "SELECT dive_logs.*, users.firstName, users.lastName FROM dive_logs LEFT JOIN users ON dive_logs.userId = users.id ORDER BY date DESC"
+  );
   return result.rows as unknown as DiveLog[];
 };
 
 export const getDiveLogsForUser = async (userId: number): Promise<DiveLog[]> => {
   await dbReady;
   const result = await db.execute({
-    sql: "SELECT * FROM dive_logs WHERE userId = ? ORDER BY date DESC",
+    sql: "SELECT dive_logs.*, users.firstName, users.lastName FROM dive_logs LEFT JOIN users ON dive_logs.userId = users.id WHERE dive_logs.userId = ? ORDER BY date DESC",
     args: [userId],
   });
   return result.rows as unknown as DiveLog[];
@@ -157,10 +175,14 @@ export const getDiveLogsForUser = async (userId: number): Promise<DiveLog[]> => 
 export const insertDiveLog = async (log: DiveLogBase, userId: number): Promise<DiveLog> => {
   await dbReady;
   const result = await db.execute({
-    sql: "INSERT INTO dive_logs (location, depth, duration, date, userId) VALUES (?, ?, ?, ?, ?)",
-    args: [log.location, log.depth, log.duration, log.date, userId],
+    sql: "INSERT INTO dive_logs (location, depth, duration, date, userId, buddy, diveType, visibility, waterTemp, tankStart, tankEnd, notes, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    args: [log.location, log.depth, log.duration, log.date, userId, log.buddy ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null],
   });
-  return { id: Number(result.lastInsertRowid), userId, ...log };
+  const inserted = await db.execute({
+    sql: "SELECT dive_logs.*, users.firstName, users.lastName FROM dive_logs LEFT JOIN users ON dive_logs.userId = users.id WHERE dive_logs.id = ?",
+    args: [Number(result.lastInsertRowid)],
+  });
+  return row<DiveLog>(inserted.rows[0]);
 };
 
 export const updateDiveLog = async (
@@ -170,8 +192,8 @@ export const updateDiveLog = async (
 ): Promise<DiveLog | null> => {
   await dbReady;
   const result = await db.execute({
-    sql: "UPDATE dive_logs SET location = ?, depth = ?, duration = ?, date = ? WHERE id = ? AND userId = ?",
-    args: [log.location, log.depth, log.duration, log.date, id, userId],
+    sql: "UPDATE dive_logs SET location = ?, depth = ?, duration = ?, date = ?, buddy = ?, diveType = ?, visibility = ?, waterTemp = ?, tankStart = ?, tankEnd = ?, notes = ?, rating = ? WHERE id = ? AND userId = ?",
+    args: [log.location, log.depth, log.duration, log.date, log.buddy ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null, id, userId],
   });
   if (result.rowsAffected === 0) return null;
   const updated = await db.execute({ sql: "SELECT * FROM dive_logs WHERE id = ?", args: [id] });
@@ -185,22 +207,28 @@ export const adminUpdateDiveLog = async (
 ): Promise<DiveLog | null> => {
   await dbReady;
   const result = await db.execute({
-    sql: "UPDATE dive_logs SET location = ?, depth = ?, duration = ?, date = ?, userId = ? WHERE id = ?",
-    args: [log.location, log.depth, log.duration, log.date, targetUserId, id],
+    sql: "UPDATE dive_logs SET location = ?, depth = ?, duration = ?, date = ?, userId = ?, buddy = ?, diveType = ?, visibility = ?, waterTemp = ?, tankStart = ?, tankEnd = ?, notes = ?, rating = ? WHERE id = ?",
+    args: [log.location, log.depth, log.duration, log.date, targetUserId, log.buddy ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null, id],
   });
   if (result.rowsAffected === 0) return null;
   const updated = await db.execute({ sql: "SELECT * FROM dive_logs WHERE id = ?", args: [id] });
   return updated.rows[0] ? row<DiveLog>(updated.rows[0]) : null;
 };
 
-export const deleteDiveLog = async (id: number, userId: number): Promise<DiveLog | null> => {
+export type DeleteDiveLogResult =
+  | { status: "ok"; log: DiveLog }
+  | { status: "not_found" }
+  | { status: "forbidden" };
+
+export const deleteDiveLog = async (id: number, userId: number): Promise<DeleteDiveLogResult> => {
   await dbReady;
   const found = await db.execute({
-    sql: "SELECT * FROM dive_logs WHERE id = ? AND userId = ?",
-    args: [id, userId],
+    sql: "SELECT * FROM dive_logs WHERE id = ?",
+    args: [id],
   });
-  if (!found.rows[0]) return null;
+  if (!found.rows[0]) return { status: "not_found" };
   const log = row<DiveLog>(found.rows[0]);
+  if (log.userId !== userId) return { status: "forbidden" };
   await db.execute({ sql: "DELETE FROM dive_logs WHERE id = ?", args: [id] });
-  return log;
+  return { status: "ok", log };
 };

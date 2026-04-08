@@ -9,10 +9,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { searchParams } = new URL(req.url);
-  const logs =
-    searchParams.get("filter") === "all"
-      ? await getAllDiveLogs()
-      : await getDiveLogsForUser(user.id);
+  const wantsAll = searchParams.get("filter") === "all";
+  if (wantsAll && !user.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const logs = wantsAll ? await getAllDiveLogs() : await getDiveLogsForUser(user.id);
   return NextResponse.json(logs);
 }
 

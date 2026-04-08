@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/form";
 
 export default function ConfirmModal({
@@ -17,11 +17,16 @@ export default function ConfirmModal({
   onClose: () => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
 
   const handleConfirm = async () => {
     setSubmitting(true);
-    await onConfirm();
-    setSubmitting(false);
+    try {
+      await onConfirm();
+    } finally {
+      if (mounted.current) setSubmitting(false);
+    }
   };
 
   return (

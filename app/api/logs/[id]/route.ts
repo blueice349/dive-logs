@@ -40,7 +40,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const user = await getSession();
@@ -49,12 +49,14 @@ export async function DELETE(
   }
 
   const { id } = await context.params;
-  const numericId = Number(id);
+  const result = await deleteDiveLog(Number(id), user.id);
 
-  const deleted = await deleteDiveLog(numericId, user.id);
-  if (!deleted) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (result.status === "not_found") {
+    return NextResponse.json({ error: "Dive log not found." }, { status: 404 });
+  }
+  if (result.status === "forbidden") {
+    return NextResponse.json({ error: "You do not have permission to delete this dive log." }, { status: 403 });
   }
 
-  return NextResponse.json(deleted);
+  return NextResponse.json(result.log);
 }

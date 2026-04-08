@@ -19,9 +19,9 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
 
   useEffect(() => {
     const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
-    fetch(url)
-      .then((r) => r.json())
-      .then(setLogs);
+    fetch(url).then((r) => {
+      if (r.ok) r.json().then(setLogs);
+    });
   }, [filter]);
 
   const handleAdded = (log: DiveLog) => {
@@ -37,19 +37,22 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
   const handleDelete = async () => {
     if (!deletingLog) return;
     const res = await fetch(`/api/logs/${deletingLog.id}`, { method: "DELETE" });
-    if (res.status === 401) {
-      setDeletingLog(null);
-      alert("You are not authorized to delete this log.");
-    } else if (res.status === 404) {
-      setDeletingLog(null);
-      alert("This dive log could not be found. It may have already been deleted.");
+    if (res.ok) {
       setLogs((prev) => prev.filter((l) => l.id !== deletingLog.id));
-    } else if (!res.ok) {
       setDeletingLog(null);
-      alert("Failed to delete dive log. Please try again.");
     } else {
-      setLogs((prev) => prev.filter((l) => l.id !== deletingLog.id));
+      const { error } = await res.json().catch(() => ({ error: null }));
       setDeletingLog(null);
+      if (res.status === 401) {
+        alert("You must be logged in to delete a dive log.");
+      } else if (res.status === 403) {
+        alert(error ?? "You do not have permission to delete this dive log.");
+      } else if (res.status === 404) {
+        alert(error ?? "This dive log could not be found.");
+        setLogs((prev) => prev.filter((l) => l.id !== deletingLog.id));
+      } else {
+        alert(error ?? "Failed to delete dive log. Please try again.");
+      }
     }
   };
 
@@ -82,7 +85,7 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
               gap: 2,
             }}
           >
-            {(["mine", "all"] as Filter[]).map((f) => (
+            {(["mine", ...(user.isAdmin ? ["all"] : [])] as Filter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}

@@ -178,7 +178,11 @@ export const insertDiveLog = async (log: DiveLogBase, userId: number): Promise<D
     sql: "INSERT INTO dive_logs (location, depth, duration, date, userId, buddy, diveType, visibility, waterTemp, tankStart, tankEnd, notes, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     args: [log.location, log.depth, log.duration, log.date, userId, log.buddy ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null],
   });
-  return { id: Number(result.lastInsertRowid), userId, ...log };
+  const inserted = await db.execute({
+    sql: "SELECT dive_logs.*, users.firstName, users.lastName FROM dive_logs LEFT JOIN users ON dive_logs.userId = users.id WHERE dive_logs.id = ?",
+    args: [Number(result.lastInsertRowid)],
+  });
+  return row<DiveLog>(inserted.rows[0]);
 };
 
 export const updateDiveLog = async (
@@ -211,14 +215,20 @@ export const adminUpdateDiveLog = async (
   return updated.rows[0] ? row<DiveLog>(updated.rows[0]) : null;
 };
 
-export const deleteDiveLog = async (id: number, userId: number): Promise<DiveLog | null> => {
+export type DeleteDiveLogResult =
+  | { status: "ok"; log: DiveLog }
+  | { status: "not_found" }
+  | { status: "forbidden" };
+
+export const deleteDiveLog = async (id: number, userId: number): Promise<DeleteDiveLogResult> => {
   await dbReady;
   const found = await db.execute({
-    sql: "SELECT * FROM dive_logs WHERE id = ? AND userId = ?",
-    args: [id, userId],
+    sql: "SELECT * FROM dive_logs WHERE id = ?",
+    args: [id],
   });
-  if (!found.rows[0]) return null;
+  if (!found.rows[0]) return { status: "not_found" };
   const log = row<DiveLog>(found.rows[0]);
+  if (log.userId !== userId) return { status: "forbidden" };
   await db.execute({ sql: "DELETE FROM dive_logs WHERE id = ?", args: [id] });
-  return log;
+  return { status: "ok", log };
 };

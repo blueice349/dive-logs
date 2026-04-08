@@ -25,7 +25,9 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
   }, [filter]);
 
   const handleAdded = (log: DiveLog) => {
-    setLogs((prev) => [...prev, log]);
+    if (filter === "all" || log.userId === user.id) {
+      setLogs((prev) => [...prev, log]);
+    }
     setShowAdd(false);
   };
 

@@ -58,6 +58,18 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN tankEnd REAL",
     "ALTER TABLE dive_logs ADD COLUMN notes TEXT",
     "ALTER TABLE dive_logs ADD COLUMN rating INTEGER",
+    "ALTER TABLE dive_logs ADD COLUMN lat REAL",
+    "ALTER TABLE dive_logs ADD COLUMN lng REAL",
+    "ALTER TABLE dive_logs ADD COLUMN buddyUserId INTEGER",
+    "ALTER TABLE dive_logs ADD COLUMN wetsuit TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN bcd TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN fins TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN cylinderType TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN cylinderSize REAL",
+    "ALTER TABLE dive_logs ADD COLUMN gasMix TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN o2Percent REAL",
+    "ALTER TABLE dive_logs ADD COLUMN certUsed TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
   ]) {
     try {
       await db.execute(sql);
@@ -175,8 +187,8 @@ export const getDiveLogsForUser = async (userId: number): Promise<DiveLog[]> => 
 export const insertDiveLog = async (log: DiveLogBase, userId: number): Promise<DiveLog> => {
   await dbReady;
   const result = await db.execute({
-    sql: "INSERT INTO dive_logs (location, depth, duration, date, userId, buddy, diveType, visibility, waterTemp, tankStart, tankEnd, notes, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    args: [log.location, log.depth, log.duration, log.date, userId, log.buddy ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null],
+    sql: "INSERT INTO dive_logs (location, depth, duration, date, userId, buddy, buddyUserId, diveType, visibility, waterTemp, tankStart, tankEnd, notes, rating, lat, lng, wetsuit, bcd, fins, cylinderType, cylinderSize, gasMix, o2Percent, certUsed, marineLife) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    args: [log.location, log.depth, log.duration, log.date, userId, log.buddy ?? null, log.buddyUserId ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null, log.lat ?? null, log.lng ?? null, log.wetsuit ?? null, log.bcd ?? null, log.fins ?? null, log.cylinderType ?? null, log.cylinderSize ?? null, log.gasMix ?? null, log.o2Percent ?? null, log.certUsed ?? null, log.marineLife ?? null],
   });
   const inserted = await db.execute({
     sql: "SELECT dive_logs.*, users.firstName, users.lastName FROM dive_logs LEFT JOIN users ON dive_logs.userId = users.id WHERE dive_logs.id = ?",
@@ -192,8 +204,8 @@ export const updateDiveLog = async (
 ): Promise<DiveLog | null> => {
   await dbReady;
   const result = await db.execute({
-    sql: "UPDATE dive_logs SET location = ?, depth = ?, duration = ?, date = ?, buddy = ?, diveType = ?, visibility = ?, waterTemp = ?, tankStart = ?, tankEnd = ?, notes = ?, rating = ? WHERE id = ? AND userId = ?",
-    args: [log.location, log.depth, log.duration, log.date, log.buddy ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null, id, userId],
+    sql: "UPDATE dive_logs SET location = ?, depth = ?, duration = ?, date = ?, buddy = ?, buddyUserId = ?, diveType = ?, visibility = ?, waterTemp = ?, tankStart = ?, tankEnd = ?, notes = ?, rating = ?, lat = ?, lng = ?, wetsuit = ?, bcd = ?, fins = ?, cylinderType = ?, cylinderSize = ?, gasMix = ?, o2Percent = ?, certUsed = ?, marineLife = ? WHERE id = ? AND userId = ?",
+    args: [log.location, log.depth, log.duration, log.date, log.buddy ?? null, log.buddyUserId ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null, log.lat ?? null, log.lng ?? null, log.wetsuit ?? null, log.bcd ?? null, log.fins ?? null, log.cylinderType ?? null, log.cylinderSize ?? null, log.gasMix ?? null, log.o2Percent ?? null, log.certUsed ?? null, log.marineLife ?? null, id, userId],
   });
   if (result.rowsAffected === 0) return null;
   const updated = await db.execute({ sql: "SELECT * FROM dive_logs WHERE id = ?", args: [id] });
@@ -207,8 +219,8 @@ export const adminUpdateDiveLog = async (
 ): Promise<DiveLog | null> => {
   await dbReady;
   const result = await db.execute({
-    sql: "UPDATE dive_logs SET location = ?, depth = ?, duration = ?, date = ?, userId = ?, buddy = ?, diveType = ?, visibility = ?, waterTemp = ?, tankStart = ?, tankEnd = ?, notes = ?, rating = ? WHERE id = ?",
-    args: [log.location, log.depth, log.duration, log.date, targetUserId, log.buddy ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null, id],
+    sql: "UPDATE dive_logs SET location = ?, depth = ?, duration = ?, date = ?, userId = ?, buddy = ?, buddyUserId = ?, diveType = ?, visibility = ?, waterTemp = ?, tankStart = ?, tankEnd = ?, notes = ?, rating = ?, lat = ?, lng = ?, wetsuit = ?, bcd = ?, fins = ?, cylinderType = ?, cylinderSize = ?, gasMix = ?, o2Percent = ?, certUsed = ?, marineLife = ? WHERE id = ?",
+    args: [log.location, log.depth, log.duration, log.date, targetUserId, log.buddy ?? null, log.buddyUserId ?? null, log.diveType ?? null, log.visibility ?? null, log.waterTemp ?? null, log.tankStart ?? null, log.tankEnd ?? null, log.notes ?? null, log.rating ?? null, log.lat ?? null, log.lng ?? null, log.wetsuit ?? null, log.bcd ?? null, log.fins ?? null, log.cylinderType ?? null, log.cylinderSize ?? null, log.gasMix ?? null, log.o2Percent ?? null, log.certUsed ?? null, log.marineLife ?? null, id],
   });
   if (result.rowsAffected === 0) return null;
   const updated = await db.execute({ sql: "SELECT * FROM dive_logs WHERE id = ?", args: [id] });

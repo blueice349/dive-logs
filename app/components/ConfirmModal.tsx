@@ -65,7 +65,7 @@ export default function ConfirmModal({
             Cancel
           </Button>
           <Button variant="danger" onClick={handleConfirm} disabled={submitting}>
-            {submitting ? "Deleting…" : confirmLabel}
+            {submitting ? `${confirmLabel}…` : confirmLabel}
           </Button>
         </div>
       </div>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
-const LeafletLocationMap = dynamic(() => import("./LeafletLocationMap"), { ssr: false });
+// Dynamically import the map so it never SSRs (Leaflet requires window)
+const LeafletMap = dynamic(() => import("./LeafletLocationMap"), { ssr: false });
 
 type Props = {
   lat: string;
@@ -12,196 +13,167 @@ type Props = {
 };
 
 type NominatimResult = {
-  display_name: string;
   lat: string;
   lon: string;
+  display_name: string;
 };
 
 export default function LocationPicker({ lat, lng, onChange }: Props) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const [showMap, setShowMap] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const hasCoords = lat !== "" && lng !== "";
-
+  // Open map automatically when coords are present
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (query.trim().length < 3) {
-      setSuggestions([]);
-      return;
+    if (lat && lng && !showMap) setShowMap(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const search = async (q: string) => {
+    if (!q.trim()) { setSuggestions([]); return; }
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      const data: NominatimResult[] = await res.json();
+      setSuggestions(data);
+    } finally {
+      setSearching(false);
     }
-    setIsSearching(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
-        const res = await fetch(url, {
-          headers: { "Accept-Language": "en" },
-        });
-        const data: NominatimResult[] = await res.json();
-        setSuggestions(data);
-      } catch {
-        setSuggestions([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 500);
+  };
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query]);
+  const handleQueryChange = (v: string) => {
+    setQuery(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => search(v), 500);
+  };
 
-  const selectSuggestion = (result: NominatimResult) => {
-    onChange(result.lat, result.lon);
-    setQuery(result.display_name);
+  const handleSelect = (result: NominatimResult) => {
+    onChange(
+      parseFloat(result.lat).toFixed(6),
+      parseFloat(result.lon).toFixed(6)
+    );
+    setQuery(result.display_name.split(",").slice(0, 2).join(", "));
     setSuggestions([]);
     setShowMap(true);
   };
 
-  const clearCoords = () => {
-    onChange("", "");
-    setQuery("");
-    setSuggestions([]);
-  };
+  const hasCoords = lat !== "" && lng !== "";
 
   return (
-    <div>
-      <p
-        style={{
-          margin: "0 0 8px",
-          fontWeight: 600,
-          fontSize: 13,
-          color: "#666",
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-        }}
-      >
-        Location (for map)
-      </p>
-
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {/* Address search */}
-      <div style={{ position: "relative", marginBottom: 10 }}>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search for a dive site address…"
-          style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: 6,
-            border: "1px solid #ccc",
-            fontSize: 15,
-            boxSizing: "border-box",
-          }}
-        />
-        {isSearching && (
-          <span
-            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "#888", fontSize: 13 }}
-          >
-            Searching…
-          </span>
-        )}
-        {suggestions.length > 0 && (
-          <ul
+      <div style={{ position: "relative" }}>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          Search Address / Dive Site
+        </label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => handleQueryChange(e.target.value)}
+            placeholder="e.g. Blue Hole, Dahab or Coral Bay, Philippines"
             style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              background: "white",
+              flex: 1,
+              padding: "8px 12px",
+              borderRadius: 7,
               border: "1px solid #ccc",
-              borderRadius: 6,
-              margin: 0,
-              padding: 0,
-              listStyle: "none",
-              zIndex: 500,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-              maxHeight: 220,
-              overflowY: "auto",
+              fontSize: 14,
+              color: "#222",
+              background: "white",
+              outline: "none",
             }}
-          >
+          />
+          {searching && (
+            <div style={{ display: "flex", alignItems: "center", paddingRight: 4 }}>
+              <div style={{ width: 16, height: 16, border: "2px solid #1565c0", borderTop: "2px solid transparent", borderRadius: "50%", animation: "spin 0.75s linear infinite" }} />
+            </div>
+          )}
+        </div>
+
+        {/* Suggestions dropdown */}
+        {suggestions.length > 0 && (
+          <div style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            background: "white",
+            border: "1px solid #dde3ec",
+            borderRadius: 8,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+            zIndex: 500,
+            marginTop: 2,
+            overflow: "hidden",
+          }}>
             {suggestions.map((s, i) => (
-              <li
+              <button
                 key={i}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  selectSuggestion(s);
-                }}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(s); }}
                 style={{
-                  padding: "10px 12px",
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "9px 14px",
+                  background: "none",
+                  border: "none",
+                  fontSize: 13,
+                  color: "#222",
                   cursor: "pointer",
-                  fontSize: 14,
-                  borderBottom: i < suggestions.length - 1 ? "1px solid #eee" : "none",
+                  borderBottom: i < suggestions.length - 1 ? "1px solid #f0f0f0" : "none",
                 }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLLIElement).style.background = "#f0f4ff";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLLIElement).style.background = "white";
-                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f0f4f8"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
               >
                 {s.display_name}
-              </li>
+              </button>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 
-      {/* Lat/Lng inputs + controls */}
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 120 }}>
-          <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 3 }}>
-            Latitude
-          </label>
-          <input
-            type="number"
-            value={lat}
-            onChange={(e) => onChange(e.target.value, lng)}
-            placeholder="e.g. 27.9213"
-            step="any"
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              borderRadius: 6,
-              border: "1px solid #ccc",
-              fontSize: 14,
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-        <div style={{ flex: 1, minWidth: 120 }}>
-          <label style={{ fontSize: 12, color: "#666", display: "block", marginBottom: 3 }}>
-            Longitude
-          </label>
-          <input
-            type="number"
-            value={lng}
-            onChange={(e) => onChange(lat, e.target.value)}
-            placeholder="e.g. 34.5098"
-            step="any"
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              borderRadius: 6,
-              border: "1px solid #ccc",
-              fontSize: 14,
-              boxSizing: "border-box",
-            }}
-          />
+      {/* Coords display + map toggle */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, flex: 1 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.5px" }}>Latitude</label>
+            <input
+              type="number"
+              step="any"
+              value={lat}
+              onChange={(e) => onChange(e.target.value, lng)}
+              placeholder="e.g. 27.9158"
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 7, border: "1px solid #ccc", fontSize: 14, color: "#222", background: "white", boxSizing: "border-box" }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.5px" }}>Longitude</label>
+            <input
+              type="number"
+              step="any"
+              value={lng}
+              onChange={(e) => onChange(lat, e.target.value)}
+              placeholder="e.g. 34.3299"
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 7, border: "1px solid #ccc", fontSize: 14, color: "#222", background: "white", boxSizing: "border-box" }}
+            />
+          </div>
         </div>
         <button
           type="button"
           onClick={() => setShowMap((v) => !v)}
           style={{
+            marginTop: 20,
             padding: "8px 14px",
-            borderRadius: 6,
+            borderRadius: 7,
             border: "1px solid #1565c0",
             background: showMap ? "#1565c0" : "white",
             color: showMap ? "white" : "#1565c0",
-            fontSize: 14,
+            fontSize: 13,
+            fontWeight: 600,
             cursor: "pointer",
             whiteSpace: "nowrap",
           }}
@@ -211,17 +183,18 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
         {hasCoords && (
           <button
             type="button"
-            onClick={clearCoords}
+            onClick={() => { onChange("", ""); setQuery(""); setShowMap(false); }}
             style={{
-              padding: "8px 14px",
-              borderRadius: 6,
-              border: "1px solid #c62828",
+              marginTop: 20,
+              padding: "8px 10px",
+              borderRadius: 7,
+              border: "1px solid #ccc",
               background: "white",
-              color: "#c62828",
-              fontSize: 14,
+              color: "#888",
+              fontSize: 13,
               cursor: "pointer",
-              whiteSpace: "nowrap",
             }}
+            title="Clear coordinates"
           >
             ✕ Clear
           </button>
@@ -230,8 +203,12 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
 
       {/* Map */}
       {showMap && (
-        <div style={{ marginTop: 12 }}>
-          <LeafletLocationMap lat={lat} lng={lng} onChange={onChange} />
+        <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #dde3ec", height: 280 }}>
+          <LeafletMap
+            lat={lat}
+            lng={lng}
+            onChange={onChange}
+          />
         </div>
       )}
     </div>

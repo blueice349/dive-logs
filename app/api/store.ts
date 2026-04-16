@@ -125,7 +125,7 @@ const dbReady = (async () => {
   for (const s of seeds) {
     try {
       await db.execute({
-        sql: "INSERT OR IGNORE INTO species_list (name, category) VALUES (?, ?)",
+        sql: "INSERT OR IGNORE INTO species (name, category) VALUES (?, ?)",
         args: [s.name, s.category],
       });
     } catch {

@@ -58,6 +58,9 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN tankEnd REAL",
     "ALTER TABLE dive_logs ADD COLUMN notes TEXT",
     "ALTER TABLE dive_logs ADD COLUMN rating INTEGER",
+    "ALTER TABLE dive_logs ADD COLUMN lat REAL",
+    "ALTER TABLE dive_logs ADD COLUMN lng REAL",
+    "ALTER TABLE users ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1",
   ]) {
     try {
       await db.execute(sql);
@@ -73,9 +76,14 @@ const row = <T>(r: any): T => r as T;
 export const listUsers = async (): Promise<Omit<User, "password">[]> => {
   await dbReady;
   const result = await db.execute(
-    "SELECT id, email, firstName, lastName, phone, isAdmin FROM users ORDER BY id"
+    "SELECT id, email, firstName, lastName, phone, isAdmin, isActive FROM users ORDER BY id"
   );
   return result.rows as unknown as Omit<User, "password">[];
+};
+
+export const setUserActive = async (id: number, isActive: 0 | 1): Promise<void> => {
+  await dbReady;
+  await db.execute({ sql: "UPDATE users SET isActive = ? WHERE id = ?", args: [isActive, id] });
 };
 
 export const deleteUser = async (id: number): Promise<void> => {
@@ -143,7 +151,7 @@ export const findSession = async (token: string): Promise<User | null> => {
   await dbReady;
   const now = Math.floor(Date.now() / 1000);
   const result = await db.execute({
-    sql: "SELECT users.* FROM sessions JOIN users ON sessions.userId = users.id WHERE sessions.token = ? AND sessions.expiresAt > ?",
+    sql: "SELECT users.* FROM sessions JOIN users ON sessions.userId = users.id WHERE sessions.token = ? AND sessions.expiresAt > ? AND users.isActive = 1",
     args: [token, now],
   });
   return result.rows[0] ? row<User>(result.rows[0]) : null;

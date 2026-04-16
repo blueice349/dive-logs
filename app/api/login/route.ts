@@ -21,6 +21,13 @@ export async function POST(req: Request) {
     );
   }
 
+  if (user.isActive === 0) {
+    return NextResponse.json(
+      { error: "Your account has been suspended. Please contact an administrator." },
+      { status: 403 }
+    );
+  }
+
   // Compare the plain text input against the stored hash
   const passwordMatch = await bcrypt.compare(value.password, user.password);
   if (!passwordMatch) {

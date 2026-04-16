@@ -1,118 +1,132 @@
 "use client";
 
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  CircleMarker,
+  useMap,
+} from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
+import { useEffect } from "react";
 import { type DiveLog } from "@/app/api/logs/data";
 
-// Custom dive pin SVG — blue for normal, orange for selected
-const makeIcon = (selected: boolean) =>
+// Fix default Leaflet icon paths
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
+const makeDiveIcon = (selected: boolean) =>
   L.divIcon({
     className: "",
-    html: `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42">
-      <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 27 15 27S30 25.5 30 15C30 6.716 23.284 0 15 0z"
-        fill="${selected ? "#e65100" : "#1565c0"}" stroke="white" stroke-width="2"/>
-      <text x="15" y="20" text-anchor="middle" font-size="13" fill="white">🤿</text>
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="38" viewBox="0 0 28 38">
+      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.63 14 24 14 24S28 23.63 28 14C28 6.27 21.73 0 14 0z"
+        fill="${selected ? "#f57c00" : "#1565c0"}" stroke="white" stroke-width="1.5"/>
+      <circle cx="14" cy="14" r="6" fill="white" opacity="0.9"/>
     </svg>`,
-    iconSize: [30, 42],
-    iconAnchor: [15, 42],
-    popupAnchor: [0, -44],
+    iconSize: [28, 38],
+    iconAnchor: [14, 38],
+    popupAnchor: [0, -40],
   });
+
+function ratingStars(rating?: number) {
+  if (!rating) return null;
+  return "★".repeat(rating) + "☆".repeat(5 - rating);
+}
+
+type Props = {
+  logs: DiveLog[];
+  selectedId?: number | null;
+  onSelect?: (id: number) => void;
+};
 
 function FitBounds({ logs }: { logs: DiveLog[] }) {
   const map = useMap();
   useEffect(() => {
-    const points = logs
-      .filter((l) => l.lat != null && l.lng != null)
-      .map((l) => [l.lat!, l.lng!] as [number, number]);
-    if (points.length === 0) return;
-    // Defer so clusters have time to render before fitBounds runs
-    const id = setTimeout(() => {
-      if (points.length === 1) {
-        map.setView(points[0], 12);
-      } else {
-        map.fitBounds(L.latLngBounds(points), { padding: [60, 60] });
-      }
+    const mapped = logs.filter((l) => l.lat != null && l.lng != null);
+    if (mapped.length === 0) return;
+    setTimeout(() => {
+      const bounds = L.latLngBounds(
+        mapped.map((l) => [l.lat as number, l.lng as number] as [number, number])
+      );
+      map.fitBounds(bounds, { padding: [40, 40] });
     }, 100);
-    return () => clearTimeout(id);
-  }, [logs, map]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logs.length]);
   return null;
 }
 
-export default function DiveMap({
-  logs,
-  selectedId,
-  onSelect,
-}: {
-  logs: DiveLog[];
-  selectedId?: number | null;
-  onSelect?: (id: number) => void;
-}) {
-  const mappable = logs.filter((l) => l.lat != null && l.lng != null);
+export default function DiveMap({ logs, selectedId, onSelect }: Props) {
+  const mappedLogs = logs.filter((l) => l.lat != null && l.lng != null);
+
+  const centerLat =
+    mappedLogs.length > 0
+      ? mappedLogs.reduce((s, l) => s + (l.lat as number), 0) / mappedLogs.length
+      : 20;
+  const centerLng =
+    mappedLogs.length > 0
+      ? mappedLogs.reduce((s, l) => s + (l.lng as number), 0) / mappedLogs.length
+      : 0;
+
+  const selected = mappedLogs.find((l) => l.id === selectedId);
 
   return (
     <MapContainer
-      center={[20, 0]}
-      zoom={2}
+      center={[centerLat, centerLng]}
+      zoom={mappedLogs.length === 0 ? 2 : 4}
       style={{ height: "100%", width: "100%" }}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        maxZoom={19}
+        attribution="© OpenStreetMap contributors"
       />
-      <FitBounds logs={mappable} />
-
-      <MarkerClusterGroup
-        chunkedLoading
-        showCoverageOnHover={false}
-        maxClusterRadius={50}
-      >
-        {mappable.map((log) => {
-          const isSelected = log.id === selectedId;
-          return (
-            <Marker
-              key={log.id}
-              position={[log.lat!, log.lng!]}
-              icon={makeIcon(isSelected)}
-              eventHandlers={{ click: () => onSelect?.(log.id) }}
-            >
-              <Popup>
-                <div style={{ minWidth: 180, fontFamily: "system-ui, sans-serif" }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1565c0", marginBottom: 6, borderBottom: "1px solid #e0e7ef", paddingBottom: 6 }}>
-                    {log.location}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 13, color: "#444" }}>
-                    <span>📅 {log.date.split("T")[0]}</span>
-                    <span>⬇️ {log.depth} ft</span>
-                    <span>⏱ {log.duration} min</span>
-                    {log.diveType && <span>🤿 {log.diveType}</span>}
-                    {log.buddy && <span>👤 {log.buddy}</span>}
-                    {log.visibility != null && <span>👁 {log.visibility} ft visibility</span>}
-                    {log.waterTemp != null && <span>🌡 {log.waterTemp}°F</span>}
-                    {log.rating != null && (
-                      <span style={{ color: "#f59e0b" }}>
-                        {"★".repeat(log.rating)}{"☆".repeat(5 - log.rating)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MarkerClusterGroup>
-
-      {/* Highlight ring for selected marker */}
-      {mappable.filter((l) => l.id === selectedId).map((log) => (
+      <FitBounds logs={mappedLogs} />
+      {selected && (
         <CircleMarker
-          key={`sel-${log.id}`}
-          center={[log.lat!, log.lng!]}
+          center={[selected.lat as number, selected.lng as number]}
           radius={22}
-          pathOptions={{ color: "#e65100", weight: 3, fillOpacity: 0, opacity: 0.7, dashArray: "6 4" }}
+          pathOptions={{ color: "#f57c00", weight: 3, fill: false }}
         />
-      ))}
+      )}
+      <MarkerClusterGroup chunkedLoading>
+        {mappedLogs.map((log) => (
+          <Marker
+            key={log.id}
+            position={[log.lat as number, log.lng as number]}
+            icon={makeDiveIcon(log.id === selectedId)}
+            eventHandlers={{ click: () => onSelect?.(log.id) }}
+          >
+            <Popup>
+              <div style={{ minWidth: 180, fontSize: 13 }}>
+                <strong style={{ fontSize: 15, color: "#1565c0" }}>{log.location}</strong>
+                <div style={{ marginTop: 6, color: "#444" }}>
+                  <div>📅 {log.date}</div>
+                  <div>⬇️ {log.depth} ft · ⏱ {log.duration} min</div>
+                  {log.diveType && <div>🤿 {log.diveType}</div>}
+                  {log.buddy && <div>👤 {log.buddy}</div>}
+                  {log.visibility != null && <div>👁 Visibility: {log.visibility} ft</div>}
+                  {log.waterTemp != null && <div>🌡 Water Temp: {log.waterTemp}°F</div>}
+                  {log.rating != null && (
+                    <div style={{ color: "#f57c00" }}>{ratingStars(log.rating)}</div>
+                  )}
+                  {log.firstName && (
+                    <div style={{ marginTop: 4, color: "#888", fontSize: 12 }}>
+                      {log.firstName} {log.lastName}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MarkerClusterGroup>
     </MapContainer>
   );
 }

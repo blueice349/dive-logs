@@ -4,6 +4,7 @@ import { useEffect, useState, KeyboardEvent } from "react";
 import { useForm, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Button, FormGrid, Label } from "@/components/ui/form";
+import LocationPicker from "./LocationPicker";
 import {
   type DiveLog,
   type DiveLogBase,
@@ -641,6 +642,16 @@ export default function DiveLogModal(props: Props) {
                 name="notes"
                 label="Notes"
                 placeholder="Sealife spotted, conditions, gear used..."
+              />
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <LocationPicker
+                lat={form.watch("lat")}
+                lng={form.watch("lng")}
+                onChange={(lat, lng) => {
+                  form.setValue("lat", lat, { shouldDirty: true });
+                  form.setValue("lng", lng, { shouldDirty: true });
+                }}
               />
             </div>
           </FormProvider>

@@ -9,8 +9,12 @@ import {
   type DiveLog,
   type DiveLogBase,
   type DiveType,
+  type GasMix,
+  type CylinderType,
   diveLogBaseSchema,
   DIVE_TYPES,
+  GAS_MIXES,
+  CYLINDER_TYPES,
 } from "@/app/api/logs/data";
 import { type PublicUser } from "@/app/types/user";
 import LocationPicker from "./LocationPicker";
@@ -27,6 +31,7 @@ type FormValues = {
   depth: string;
   duration: string;
   buddy: string;
+  buddyUserId: string;
   diveType: DiveType | "";
   visibility: string;
   waterTemp: string;
@@ -36,26 +41,27 @@ type FormValues = {
   rating: string;
   lat: string;
   lng: string;
-  certUsed: string;
-  marineLife: string;
   wetsuit: string;
   bcd: string;
   fins: string;
-  cylinderType: string;
+  cylinderType: CylinderType | "";
   cylinderSize: string;
-  gasMix: string;
+  gasMix: GasMix | "";
   o2Percent: string;
+  certUsed: string;
+  marineLife: string;
 };
 
 const toNum = (s: string) => (s === "" ? undefined : Number(s));
 
-const toPayload = (data: FormValues): DiveLogBase => ({
+const toPayload = (data: FormValues, tags: string[]): DiveLogBase => ({
   location: data.location,
   depth: Number(data.depth),
   duration: Number(data.duration),
   date: data.date,
   buddy: data.buddy || undefined,
-  diveType: data.diveType || undefined,
+  buddyUserId: data.buddyUserId ? Number(data.buddyUserId) : undefined,
+  diveType: (data.diveType as DiveType) || undefined,
   visibility: toNum(data.visibility),
   waterTemp: toNum(data.waterTemp),
   tankStart: toNum(data.tankStart),
@@ -77,83 +83,27 @@ const toPayload = (data: FormValues): DiveLogBase => ({
 });
 
 type Props =
-  | {
-      mode: "add";
-      currentUser: PublicUser;
-      onSave: (log: DiveLog) => void;
-      onClose: () => void;
-    }
-  | {
-      mode: "edit";
-      log: DiveLog;
-      currentUser: PublicUser;
-      onSave: (log: DiveLog) => void;
-      onClose: () => void;
-    };
+  | { mode: "add"; currentUser: PublicUser; onSave: (log: DiveLog) => void; onClose: () => void }
+  | { mode: "edit"; log: DiveLog; currentUser: PublicUser; onSave: (log: DiveLog) => void; onClose: () => void };
 
-function SelectField({
-  name,
-  label,
-  children,
-}: {
-  name: keyof FormValues;
-  label: string;
-  children: React.ReactNode;
-}) {
+function SelectField({ name, label, children }: { name: keyof FormValues; label: string; children: React.ReactNode }) {
   const { register } = useFormContext<FormValues>();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <Label htmlFor={name}>{label}</Label>
-      <select
-        id={name}
-        {...register(name)}
-        style={{
-          padding: "10px 12px",
-          borderRadius: 6,
-          border: "1px solid #ccc",
-          fontSize: 16,
-          color: "#222",
-          boxSizing: "border-box",
-          width: "100%",
-          background: "white",
-        }}
-      >
+      <select id={name} {...register(name)} style={{ padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 16, color: "#222", width: "100%", background: "white", boxSizing: "border-box" }}>
         {children}
       </select>
     </div>
   );
 }
 
-function TextareaField({
-  name,
-  label,
-  placeholder,
-}: {
-  name: keyof FormValues;
-  label: string;
-  placeholder?: string;
-}) {
+function TextareaField({ name, label, placeholder }: { name: keyof FormValues; label: string; placeholder?: string }) {
   const { register } = useFormContext<FormValues>();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <Label htmlFor={name}>{label}</Label>
-      <textarea
-        id={name}
-        placeholder={placeholder}
-        rows={3}
-        {...register(name)}
-        style={{
-          padding: "10px 12px",
-          borderRadius: 6,
-          border: "1px solid #ccc",
-          fontSize: 16,
-          color: "#222",
-          boxSizing: "border-box",
-          width: "100%",
-          resize: "vertical",
-          fontFamily: "inherit",
-        }}
-      />
+      <textarea id={name} placeholder={placeholder} rows={3} {...register(name)} style={{ padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 16, color: "#222", width: "100%", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
     </div>
   );
 }
@@ -309,18 +259,31 @@ const getLogField = (log: DiveLog | null, field: string): any =>
 export default function DiveLogModal(props: Props) {
   const { mode, currentUser, onSave, onClose } = props;
 
-  const [users, setUsers] = useState<PublicUser[]>([]);
+  const [adminUsers, setAdminUsers] = useState<PublicUser[]>([]);
+  const [publicUsers, setPublicUsers] = useState<{ id: number; firstName: string; lastName: string }[]>([]);
+  const [certifications, setCertifications] = useState<{ id: number; certName: string; agency?: string }[]>([]);
+  const [speciesList, setSpeciesList] = useState<{ id: number; name: string; category?: string }[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number>(
     mode === "edit" ? props.log.userId ?? currentUser.id : currentUser.id
   );
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [speciesList, setSpeciesList] = useState<string[]>([]);
 
+  // Marine life tags (managed outside react-hook-form)
+  const log = mode === "edit" ? props.log : null;
+  const initialTags = log?.marineLife ? log.marineLife.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const [tags, setTags] = useState<string[]>(initialTags);
+  const tagsChanged = tags.length !== initialTags.length || tags.some((t, i) => t !== initialTags[i]);
+  const [tagInput, setTagInput] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const tagInputRef = useRef<HTMLInputElement>(null);
+  const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null);
+
   useEffect(() => {
+    fetch("/api/users/public").then((r) => r.ok ? r.json() : []).then(setPublicUsers);
+    fetch("/api/species").then((r) => r.ok ? r.json() : []).then(setSpeciesList);
     if (!currentUser.isAdmin) return;
-    fetch("/api/admin/users")
-      .then((r) => r.json())
-      .then(setUsers);
+    fetch("/api/admin/users").then((r) => r.json()).then(setAdminUsers);
   }, [currentUser.isAdmin]);
 
   useEffect(() => {
@@ -363,6 +326,7 @@ export default function DiveLogModal(props: Props) {
       duration: log?.duration != null ? String(log.duration) : "",
       date: log?.date ?? new Date().toISOString().split("T")[0],
       buddy: log?.buddy ?? "",
+      buddyUserId: log?.buddyUserId != null ? String(log.buddyUserId) : "",
       diveType: log?.diveType ?? "",
       visibility: log?.visibility != null ? String(log.visibility) : "",
       waterTemp: log?.waterTemp != null ? String(log.waterTemp) : "",
@@ -395,73 +359,45 @@ export default function DiveLogModal(props: Props) {
     const url = mode === "edit" ? `/api/logs/${props.log.id}` : "/api/logs";
     const method = mode === "edit" ? "PUT" : "POST";
     const payload = {
-      ...toPayload(data),
-      ...(currentUser.isAdmin ? { userId: selectedUserId } : {}),
+      ...toPayload(data, tags),
+      ...(Boolean(currentUser.isAdmin) ? { userId: selectedUserId } : {}),
     };
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     onSave(await res.json());
   });
 
+  const filteredSuggestions = tagInput.trim().length > 0
+    ? speciesList.filter((s) => s.name.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(s.name))
+    : [];
+
+  const addTag = (name: string) => {
+    if (name && !tags.includes(name)) setTags((prev) => [...prev, name]);
+    setTagInput("");
+    setShowSuggestions(false);
+  };
+
+  const removeTag = (name: string) => setTags((prev) => prev.filter((t) => t !== name));
+
+  const gasMixValue = form.watch("gasMix");
+
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 200,
-        padding: 16,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "white",
-          borderRadius: 12,
-          width: "100%",
-          maxWidth: 540,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
-          maxHeight: "90vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div style={{ padding: "28px 28px 0" }}>
-          <h2 style={{ margin: "0 0 20px", fontSize: 20, color: "#1565c0" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "white", borderRadius: 12, width: "100%", maxWidth: 560, boxShadow: "0 8px 32px rgba(0,0,0,0.2)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "24px 28px 0" }}>
+          <h2 style={{ margin: "0 0 16px", fontSize: 20, color: "#1565c0" }}>
             {mode === "edit" ? "Edit Dive Log" : "New Dive Entry"}
           </h2>
         </div>
 
-        <div style={{ overflowY: "auto", flex: 1, padding: "0 28px" }}>
-          {currentUser.isAdmin && users.length > 0 && (
+        <div style={{ overflowY: "auto", flex: 1, padding: "0 28px 8px" }}>
+          {/* Admin user selector */}
+          {Boolean(currentUser.isAdmin) && adminUsers.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <Label htmlFor="user-select">User</Label>
-              <select
-                id="user-select"
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(Number(e.target.value))}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #ccc",
-                  fontSize: 16,
-                  color: "#222",
-                  boxSizing: "border-box",
-                  marginTop: 4,
-                }}
-              >
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.firstName} {u.lastName} ({u.email})
-                  </option>
+              <Label htmlFor="user-select">Log for User</Label>
+              <select id="user-select" value={selectedUserId} onChange={(e) => setSelectedUserId(Number(e.target.value))}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 16, color: "#222", marginTop: 4, boxSizing: "border-box" }}>
+                {adminUsers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</option>
                 ))}
               </select>
             </div>
@@ -470,30 +406,10 @@ export default function DiveLogModal(props: Props) {
           <FormProvider {...form}>
             <SectionLabel>Dive Info</SectionLabel>
             <FormGrid cols={2}>
-              <Field<FormValues>
-                name="location"
-                label="Location"
-                placeholder="e.g. Blue Hole, Dahab"
-                rules={{ required: true }}
-              />
-              <Field<FormValues>
-                name="date"
-                label="Date"
-                type="date"
-                rules={{ required: true }}
-              />
-              <Field<FormValues>
-                name="depth"
-                label="Depth (ft)"
-                placeholder="e.g. 60"
-                rules={{ required: true }}
-              />
-              <Field<FormValues>
-                name="duration"
-                label="Duration (min)"
-                placeholder="e.g. 45"
-                rules={{ required: true }}
-              />
+              <Field<FormValues> name="location" label="Location" placeholder="e.g. Blue Hole, Dahab" rules={{ required: true }} />
+              <Field<FormValues> name="date" label="Date" type="date" rules={{ required: true }} />
+              <Field<FormValues> name="depth" label="Depth (ft)" placeholder="e.g. 60" rules={{ required: true }} />
+              <Field<FormValues> name="duration" label="Duration (min)" placeholder="e.g. 45" rules={{ required: true }} />
             </FormGrid>
 
             <SectionLabel>Location</SectionLabel>
@@ -512,11 +428,7 @@ export default function DiveLogModal(props: Props) {
             <FormGrid cols={2}>
               <SelectField name="diveType" label="Dive Type">
                 <option value="">— Select —</option>
-                {DIVE_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
+                {DIVE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </SelectField>
               <Field<FormValues>
                 name="buddy"
@@ -635,7 +547,6 @@ export default function DiveLogModal(props: Props) {
                 <option value="2">★★☆☆☆ (2)</option>
                 <option value="1">★☆☆☆☆ (1)</option>
               </SelectField>
-              <div />
             </FormGrid>
             <div style={{ marginTop: 12, marginBottom: 16 }}>
               <TextareaField
@@ -643,6 +554,19 @@ export default function DiveLogModal(props: Props) {
                 label="Notes"
                 placeholder="Sealife spotted, conditions, gear used..."
               />
+              {showSuggestions && filteredSuggestions.length > 0 && dropdownRect && (
+                <div style={{ position: "fixed", top: dropdownRect.bottom + 4, left: dropdownRect.left, width: dropdownRect.width, background: "white", border: "1px solid #dde3ec", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", zIndex: 500, maxHeight: 200, overflowY: "auto" }}>
+                  {filteredSuggestions.map((s) => (
+                    <button key={s.id} type="button" onMouseDown={(e) => { e.preventDefault(); addTag(s.name); }}
+                      style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "8px 14px", background: "none", border: "none", fontSize: 13, color: "#222", cursor: "pointer", borderBottom: "1px solid #f0f0f0" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#e3f0ff"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}>
+                      {s.name}
+                      {s.category && <span style={{ fontSize: 11, color: "#888" }}>{s.category}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div style={{ marginTop: 16 }}>
               <LocationPicker
@@ -657,26 +581,12 @@ export default function DiveLogModal(props: Props) {
           </FormProvider>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            padding: "16px 28px",
-            borderTop: "1px solid #eee",
-            justifyContent: "flex-end",
-            flexShrink: 0,
-          }}
-        >
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
+        <div style={{ display: "flex", gap: 10, padding: "16px 28px", borderTop: "1px solid #eee", justifyContent: "flex-end", flexShrink: 0 }}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button
             variant="success"
             onClick={handleSubmit}
-            disabled={
-              !form.formState.isValid ||
-              (mode === "edit" && !form.formState.isDirty)
-            }
+            disabled={!form.formState.isValid || (mode === "edit" && !form.formState.isDirty && !tagsChanged)}
           >
             {mode === "edit" ? "Save Changes" : "Save Dive"}
           </Button>

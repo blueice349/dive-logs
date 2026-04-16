@@ -1,459 +1,410 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { type DiveLog } from "@/app/api/logs/data";
 import { type PublicUser } from "@/app/types/user";
-import AppHeader from "@/app/components/AppHeader";
-import Spinner from "@/app/components/Spinner";
-import ConfirmModal from "@/app/components/ConfirmModal";
-import { Button, Card, Field, FormGrid } from "@/components/ui/form";
+import AppHeader from "./AppHeader";
+import Spinner from "./Spinner";
+import ConfirmModal from "./ConfirmModal";
+import { Card } from "@/components/ui/form";
+
+type Filter = "mine" | "all";
+type Tab = "sightings" | "species";
+
+type SpeciesEntry = {
+  name: string;
+  count: number;
+  dives: { location: string; date: string }[];
+};
+
+type Species = { id: number; name: string; category?: string };
 
 const CATEGORIES = [
   "Fish",
   "Shark & Ray",
-  "Turtle & Reptile",
-  "Invertebrate",
-  "Marine Mammal",
+  "Turtle",
+  "Cetacean",
   "Cephalopod",
-  "Coral & Plant",
+  "Crustacean",
+  "Echinoderm",
+  "Coral & Sponge",
+  "Worm & Nudibranch",
   "Other",
-] as const;
+];
 
-type Category = (typeof CATEGORIES)[number] | string;
-
-type Species = { id: number; name: string; category?: string };
-
-type DiveLogWithMarineLife = {
-  id: number;
-  location: string;
-  date: string;
-  marineLife?: string | null;
-  userId: number;
-  firstName?: string;
-  lastName?: string;
-};
-
-function TagChip({
-  label,
-  onDelete,
-}: {
-  label: string;
-  onDelete?: () => void;
-}) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        background: "#e3f2fd",
-        color: "#1565c0",
-        borderRadius: 20,
-        padding: "3px 10px",
-        fontSize: 13,
-        fontWeight: 500,
-        lineHeight: 1.4,
-      }}
-    >
-      {label}
-      {onDelete && (
-        <button
-          onClick={onDelete}
-          title={`Remove ${label}`}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "#1565c0",
-            padding: "0 2px",
-            fontSize: 14,
-            lineHeight: 1,
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          ✕
-        </button>
-      )}
-    </span>
-  );
+function parseSpecies(logs: DiveLog[]): SpeciesEntry[] {
+  const map = new Map<string, { count: number; dives: { location: string; date: string }[] }>();
+  for (const log of logs) {
+    if (!log.marineLife?.trim()) continue;
+    const species = log.marineLife.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+    const dive = {
+      location: log.location,
+      date: log.date.split("T")[0].replace(/(\d{4})-(\d{2})-(\d{2})/, "$2/$3/$1"),
+    };
+    for (const name of species) {
+      if (!map.has(name)) map.set(name, { count: 0, dives: [] });
+      const entry = map.get(name)!;
+      entry.count += 1;
+      entry.dives.push(dive);
+    }
+  }
+  return Array.from(map.entries())
+    .map(([name, { count, dives }]) => ({ name, count, dives }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
-// ── Tab 1: My Sightings ──────────────────────────────────────────────────────
-
-function SightingsTab({ user }: { user: PublicUser }) {
-  const [logs, setLogs] = useState<DiveLogWithMarineLife[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
-
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const url = Boolean(user.isAdmin) && showAll ? "/api/logs?all=1" : "/api/logs";
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const data: DiveLogWithMarineLife[] = await res.json();
-      setLogs(data.filter((l) => l.marineLife && l.marineLife.trim() !== ""));
-    } finally {
-      setLoading(false);
-    }
-  }, [user.isAdmin, showAll]);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
-        <Spinner />
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {Boolean(user.isAdmin) && (
-        <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
-          <Button
-            variant={!showAll ? "primary" : "secondary"}
-            onClick={() => setShowAll(false)}
-          >
-            My Dives
-          </Button>
-          <Button
-            variant={showAll ? "primary" : "secondary"}
-            onClick={() => setShowAll(true)}
-          >
-            All Dives
-          </Button>
-        </div>
-      )}
-
-      {logs.length === 0 ? (
-        <p style={{ color: "#666", textAlign: "center", padding: "32px 0" }}>
-          No dive logs with marine life sightings yet.
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {logs.map((log) => {
-            const species = log.marineLife
-              ? log.marineLife
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-              : [];
-            return (
-              <Card key={log.id}>
-                <div style={{ marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 15 }}>
-                    {log.location}
-                  </span>
-                  <span
-                    style={{ color: "#888", fontSize: 13, marginLeft: 10 }}
-                  >
-                    {log.date}
-                  </span>
-                  {Boolean(user.isAdmin) && showAll && log.firstName && (
-                    <span
-                      style={{
-                        color: "#555",
-                        fontSize: 13,
-                        marginLeft: 10,
-                      }}
-                    >
-                      — {log.firstName} {log.lastName}
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {species.map((s) => (
-                    <TagChip key={s} label={s} />
-                  ))}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
-
-// ── Tab 2: Species List ──────────────────────────────────────────────────────
-
-function SpeciesListTab({ user }: { user: PublicUser }) {
-  const [species, setSpecies] = useState<Species[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newCategory, setNewCategory] = useState<Category>("Fish");
-  const [adding, setAdding] = useState(false);
-  const [addError, setAddError] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<Species | null>(null);
-
-  const fetchSpecies = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/species");
-      if (!res.ok) throw new Error("Failed to load");
-      setSpecies(await res.json());
-    } catch {
-      setError("Could not load species list.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSpecies();
-  }, [fetchSpecies]);
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAddError("");
-    const name = newName.trim();
-    if (!name) return;
-    setAdding(true);
-    try {
-      const res = await fetch("/api/admin/species", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, category: newCategory }),
-      });
-      if (res.status === 409) {
-        setAddError("That species already exists.");
-        return;
-      }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setAddError(data.error ?? "Failed to add species.");
-        return;
-      }
-      setNewName("");
-      await fetchSpecies();
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    await fetch(`/api/admin/species/${deleteTarget.id}`, { method: "DELETE" });
-    setDeleteTarget(null);
-    await fetchSpecies();
-  };
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (error) {
-    return <p style={{ color: "#c62828", textAlign: "center" }}>{error}</p>;
-  }
-
-  // Group by category
-  const grouped: Record<string, Species[]> = {};
-  for (const s of species) {
-    const cat = s.category ?? "Other";
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(s);
-  }
-
-  const orderedCategories = [
-    ...CATEGORIES.filter((c) => grouped[c]),
-    ...Object.keys(grouped).filter((c) => !CATEGORIES.includes(c as never)),
-  ];
-
-  return (
-    <div>
-      {Boolean(user.isAdmin) && (
-        <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleAdd}>
-            <div
-              style={{
-                fontWeight: 600,
-                fontSize: 15,
-                marginBottom: 12,
-                color: "#1565c0",
-              }}
-            >
-              Add New Species
-            </div>
-            <FormGrid>
-              <Field label="Species Name" required>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Blue Spotted Ray"
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "8px 10px",
-                    borderRadius: 6,
-                    border: "1px solid #ccc",
-                    fontSize: 14,
-                    boxSizing: "border-box",
-                  }}
-                />
-              </Field>
-              <Field label="Category">
-                <select
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 10px",
-                    borderRadius: 6,
-                    border: "1px solid #ccc",
-                    fontSize: 14,
-                    boxSizing: "border-box",
-                    background: "white",
-                  }}
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </FormGrid>
-            {addError && (
-              <p style={{ color: "#c62828", fontSize: 13, margin: "8px 0 0" }}>
-                {addError}
-              </p>
-            )}
-            <div style={{ marginTop: 12 }}>
-              <Button type="submit" variant="primary" disabled={adding}>
-                {adding ? "Adding…" : "Add Species"}
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {orderedCategories.length === 0 ? (
-        <p style={{ color: "#666", textAlign: "center", padding: "32px 0" }}>
-          No species in the list yet.
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {orderedCategories.map((cat) => (
-            <div key={cat}>
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: 14,
-                  color: "#555",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  marginBottom: 8,
-                  paddingBottom: 4,
-                  borderBottom: "1px solid #e0e0e0",
-                }}
-              >
-                {cat}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {grouped[cat].map((s) => (
-                  <TagChip
-                    key={s.id}
-                    label={s.name}
-                    onDelete={
-                      Boolean(user.isAdmin)
-                        ? () => setDeleteTarget(s)
-                        : undefined
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {deleteTarget && (
-        <ConfirmModal
-          title="Remove Species"
-          message={`Remove "${deleteTarget.name}" from the species list?`}
-          confirmLabel="Remove"
-          onConfirm={handleDelete}
-          onClose={() => setDeleteTarget(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Main Page ────────────────────────────────────────────────────────────────
-
-type Tab = "sightings" | "species";
 
 export default function MarineLifePage({ user }: { user: PublicUser }) {
   const [tab, setTab] = useState<Tab>("sightings");
-  const [speciesTabVisited, setSpeciesTabVisited] = useState(false);
 
-  const handleTabChange = (t: Tab) => {
-    setTab(t);
-    if (t === "species") setSpeciesTabVisited(true);
+  // — Sightings tab state —
+  const [logs, setLogs] = useState<DiveLog[]>([]);
+  const [filter, setFilter] = useState<Filter>("mine");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
+    fetch(url).then((r) => {
+      if (r.ok) r.json().then((data: DiveLog[]) => { setLogs(data); setLoading(false); });
+      else setLoading(false);
+    });
+  }, [filter]);
+
+  const allSpecies = parseSpecies(logs);
+  const filteredSpecies = search.trim()
+    ? allSpecies.filter((s) => s.name.includes(search.toLowerCase().trim()))
+    : allSpecies;
+  const uniqueCount = allSpecies.length;
+  const hasAnyMarineLife = logs.some((l) => l.marineLife?.trim());
+
+  // — Species tab state —
+  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  const [speciesLoading, setSpeciesLoading] = useState(false);
+  const [speciesLoaded, setSpeciesLoaded] = useState(false);
+  const [speciesSearch, setSpeciesSearch] = useState("");
+  const [filterCat, setFilterCat] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [deletingSpecies, setDeletingSpecies] = useState<Species | null>(null);
+
+  const loadSpecies = () => {
+    if (speciesLoaded) return;
+    setSpeciesLoading(true);
+    const url = user.isAdmin ? "/api/admin/species" : "/api/species";
+    fetch(url)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => { setSpeciesList(data); setSpeciesLoading(false); setSpeciesLoaded(true); });
   };
 
-  const TAB_STYLE = (active: boolean): React.CSSProperties => ({
-    background: active ? "white" : "transparent",
-    border: "none",
-    borderBottom: active ? "2px solid #1976d2" : "2px solid transparent",
-    color: active ? "#1976d2" : "#666",
-    fontSize: 15,
-    fontWeight: active ? 600 : 400,
-    padding: "10px 20px",
-    cursor: "pointer",
-    transition: "color 0.15s",
+  useEffect(() => {
+    if (tab === "species") loadSpecies();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const handleAddSpecies = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setAdding(true);
+    setAddError("");
+    const res = await fetch("/api/admin/species", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim(), category: newCategory }),
+    });
+    setAdding(false);
+    if (res.ok) {
+      const saved: Species = await res.json();
+      setSpeciesList((prev) => [...prev, saved].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewName("");
+      setNewCategory("");
+    } else {
+      const { error } = await res.json().catch(() => ({ error: "Failed to add species" }));
+      setAddError(error ?? "Failed to add species");
+    }
+  };
+
+  const handleDeleteSpecies = async () => {
+    if (!deletingSpecies) return;
+    const res = await fetch(`/api/admin/species/${deletingSpecies.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setSpeciesList((prev) => prev.filter((s) => s.id !== deletingSpecies.id));
+      setDeletingSpecies(null);
+    } else {
+      alert("Failed to remove species.");
+    }
+  };
+
+  const visibleSpecies = speciesList.filter((s) => {
+    const matchSearch = !speciesSearch.trim() || s.name.toLowerCase().includes(speciesSearch.toLowerCase());
+    const matchCat = !filterCat || s.category === filterCat;
+    return matchSearch && matchCat;
   });
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#f5f7fa" }}>
-      <AppHeader user={user} />
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 20px" }}>
-        <h1 style={{ margin: "0 0 20px", fontSize: 24, color: "#1a237e" }}>
-          Marine Life
-        </h1>
+  const grouped = CATEGORIES.reduce<Record<string, Species[]>>((acc, cat) => {
+    const items = visibleSpecies.filter((s) => s.category === cat);
+    if (items.length) acc[cat] = items;
+    return acc;
+  }, {});
+  const uncategorized = visibleSpecies.filter((s) => !s.category);
+  if (uncategorized.length) grouped["Uncategorized"] = uncategorized;
 
-        {/* Tabs */}
-        <div
-          style={{
-            display: "flex",
-            borderBottom: "1px solid #e0e0e0",
-            marginBottom: 24,
-          }}
-        >
-          <button
-            style={TAB_STYLE(tab === "sightings")}
-            onClick={() => handleTabChange("sightings")}
-          >
-            My Sightings
-          </button>
-          <button
-            style={TAB_STYLE(tab === "species")}
-            onClick={() => handleTabChange("species")}
-          >
-            Species List
-          </button>
+  return (
+    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
+      <AppHeader user={user} />
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+          <h1 style={{ margin: 0, fontSize: 28, color: "#222" }}>Marine Life</h1>
+          {tab === "sightings" && user.isAdmin && (
+            <div style={{ display: "flex", background: "#e0e7ef", borderRadius: 8, padding: 3, gap: 2 }}>
+              {(["mine", "all"] as Filter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  style={{
+                    background: filter === f ? "white" : "transparent",
+                    border: "none", borderRadius: 6, padding: "5px 16px",
+                    fontSize: 14, fontWeight: filter === f ? 600 : 400,
+                    color: filter === f ? "#1565c0" : "#555", cursor: "pointer",
+                    boxShadow: filter === f ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  {f === "mine" ? "My Dives" : "All Dives"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Tab content */}
-        {tab === "sightings" && <SightingsTab user={user} />}
-        {(tab === "species" || speciesTabVisited) && (
-          <div style={{ display: tab === "species" ? "block" : "none" }}>
-            <SpeciesListTab user={user} />
-          </div>
+        {/* Tab bar */}
+        <div style={{ display: "flex", borderBottom: "2px solid #e0e7ef", marginBottom: 24, gap: 0 }}>
+          {([["sightings", "My Sightings"], ["species", "Species List"]] as [Tab, string][]).map(([t, label]) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                background: "none",
+                border: "none",
+                borderBottom: tab === t ? "2px solid #1565c0" : "2px solid transparent",
+                marginBottom: -2,
+                padding: "10px 20px",
+                fontSize: 15,
+                fontWeight: tab === t ? 700 : 400,
+                color: tab === t ? "#1565c0" : "#666",
+                cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── SIGHTINGS TAB ── */}
+        {tab === "sightings" && (
+          <>
+            {/* Stat bar */}
+            <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+              <Card style={{ marginBottom: 0, padding: "16px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 32, fontWeight: 700, color: "#1565c0", lineHeight: 1 }}>{uniqueCount}</div>
+                  <div style={{ fontSize: 14, color: "#555", marginTop: 4 }}>Unique Species</div>
+                </div>
+                <div style={{ width: 1, height: 40, background: "#e0e7ef", flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: 32, fontWeight: 700, color: "#1565c0", lineHeight: 1 }}>{logs.filter((l) => l.marineLife?.trim()).length}</div>
+                  <div style={{ fontSize: 14, color: "#555", marginTop: 4 }}>Dives with Sightings</div>
+                </div>
+                <div style={{ width: 1, height: 40, background: "#e0e7ef", flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: 32, fontWeight: 700, color: "#1565c0", lineHeight: 1 }}>{allSpecies.reduce((s, e) => s + e.count, 0)}</div>
+                  <div style={{ fontSize: 14, color: "#555", marginTop: 4 }}>Total Sightings</div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Search */}
+            <div style={{ position: "relative", marginBottom: 20 }}>
+              <input
+                type="text"
+                placeholder="Search species by name…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: "100%", padding: "10px 36px 10px 14px", borderRadius: 8, border: "1px solid #ccc", fontSize: 15, boxSizing: "border-box", background: "white", color: "#222" }}
+              />
+              {search && (
+                <button onClick={() => setSearch("")} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#999", lineHeight: 1, padding: 2 }} aria-label="Clear search">✕</button>
+              )}
+            </div>
+
+            <h2 style={{ margin: "0 0 16px", fontSize: 20, color: "#1565c0" }}>
+              Species Gallery
+              {search.trim() && filteredSpecies.length !== allSpecies.length && (
+                <span style={{ fontSize: 14, color: "#888", fontWeight: 400, marginLeft: 8 }}>({filteredSpecies.length} of {uniqueCount})</span>
+              )}
+            </h2>
+
+            {loading && <Spinner />}
+
+            {!loading && !hasAnyMarineLife && (
+              <Card>
+                <div style={{ padding: "32px 0", textAlign: "center", color: "#888" }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>🐠</div>
+                  <div style={{ fontSize: 18, fontWeight: 600, color: "#555", marginBottom: 8 }}>No marine life logged yet</div>
+                  <div style={{ fontSize: 14 }}>Start adding species to your dive logs to build your gallery.</div>
+                </div>
+              </Card>
+            )}
+
+            {!loading && hasAnyMarineLife && filteredSpecies.length === 0 && (
+              <Card><div style={{ padding: "24px 0", textAlign: "center", color: "#888" }}>No species match &ldquo;{search}&rdquo;.</div></Card>
+            )}
+
+            {!loading && filteredSpecies.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
+                {filteredSpecies.map((species) => (
+                  <div key={species.name} style={{ background: "white", borderRadius: 10, border: "1px solid #ddd", boxShadow: "0 2px 6px rgba(0,0,0,0.05)", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#1565c0", wordBreak: "break-word" }}>{capitalize(species.name)}</div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#e3f2fd", color: "#1565c0", borderRadius: 12, padding: "2px 10px", fontSize: 13, fontWeight: 600, width: "fit-content" }}>
+                      {species.count} {species.count === 1 ? "sighting" : "sightings"}
+                    </div>
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {species.dives.map((dive, i) => (
+                        <li key={i} style={{ fontSize: 12, color: "#555", display: "flex", flexDirection: "column", gap: 1, paddingLeft: 8, borderLeft: "2px solid #e3f2fd" }}>
+                          <span style={{ fontWeight: 600, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dive.location}</span>
+                          <span style={{ color: "#888" }}>{dive.date}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── SPECIES LIST TAB ── */}
+        {tab === "species" && (
+          <>
+            {/* Admin-only: add form */}
+            {Boolean(user.isAdmin) && (
+              <Card style={{ marginBottom: 20 }}>
+                <form onSubmit={handleAddSpecies} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                  <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: "#444" }}>Species Name *</label>
+                    <input
+                      value={newName}
+                      onChange={(e) => { setNewName(e.target.value); setAddError(""); }}
+                      placeholder="e.g. Green sea turtle"
+                      style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 15, color: "#222" }}
+                    />
+                  </div>
+                  <div style={{ flex: "1 1 160px", display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: "#444" }}>Category</label>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 15, color: "#222", background: "white" }}
+                    >
+                      <option value="">— None —</option>
+                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={adding || !newName.trim()}
+                    style={{ padding: "8px 20px", borderRadius: 6, background: adding || !newName.trim() ? "#b0bec5" : "#1565c0", color: "white", border: "none", fontSize: 15, fontWeight: 600, cursor: adding || !newName.trim() ? "not-allowed" : "pointer" }}
+                  >
+                    {adding ? "Adding…" : "Add Species"}
+                  </button>
+                </form>
+                {addError && <p style={{ margin: "8px 0 0", color: "#c62828", fontSize: 13 }}>{addError}</p>}
+              </Card>
+            )}
+
+            {/* Filters */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                value={speciesSearch}
+                onChange={(e) => setSpeciesSearch(e.target.value)}
+                placeholder="Search species…"
+                style={{ flex: "1 1 200px", padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 14, color: "#222", background: "white" }}
+              />
+              <select
+                value={filterCat}
+                onChange={(e) => setFilterCat(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 14, color: "#222", background: "white" }}
+              >
+                <option value="">All categories</option>
+                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <span style={{ fontSize: 13, color: "#888", whiteSpace: "nowrap" }}>
+                {visibleSpecies.length} of {speciesList.length} species
+              </span>
+            </div>
+
+            {speciesLoading && <Spinner />}
+
+            {!speciesLoading && speciesList.length === 0 && (
+              <Card>
+                <p style={{ margin: 0, color: "#888", textAlign: "center", padding: "20px 0" }}>
+                  No species in the list yet.{user.isAdmin ? " Add some above." : ""}
+                </p>
+              </Card>
+            )}
+
+            {!speciesLoading && Object.entries(grouped).map(([cat, items]) => (
+              <div key={cat} style={{ marginBottom: 20 }}>
+                <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.5px", color: "#1565c0" }}>
+                  {cat} ({items.length})
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {items.map((s) => (
+                    <div
+                      key={s.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: "white", border: "1px solid #dde",
+                        borderRadius: 20, padding: Boolean(user.isAdmin) ? "4px 10px 4px 14px" : "4px 14px",
+                        fontSize: 14, color: "#333",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                      }}
+                    >
+                      {s.name}
+                      {Boolean(user.isAdmin) && (
+                        <button
+                          onClick={() => setDeletingSpecies(s)}
+                          title="Remove"
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#aaa", fontSize: 14, lineHeight: 1, padding: "0 2px", borderRadius: "50%" }}
+                          aria-label={`Remove ${s.name}`}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </div>
-    </div>
+
+      {deletingSpecies && (
+        <ConfirmModal
+          title="Remove Species"
+          message={`Remove "${deletingSpecies.name}" from the approved list? Existing dive logs are not affected.`}
+          confirmLabel="Remove"
+          onConfirm={handleDeleteSpecies}
+          onClose={() => setDeletingSpecies(null)}
+        />
+      )}
+    </main>
   );
 }

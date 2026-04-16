@@ -42,10 +42,19 @@ const dbReady = (async () => {
         userId INTEGER NOT NULL REFERENCES users(id),
         expiresAt INTEGER NOT NULL
       )`,
-      `CREATE TABLE IF NOT EXISTS species_list (
+      `CREATE TABLE IF NOT EXISTS species (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE NOT NULL,
         category TEXT
+      )`,
+      `CREATE TABLE IF NOT EXISTS certifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId INTEGER NOT NULL REFERENCES users(id),
+        certName TEXT NOT NULL,
+        agency TEXT,
+        certDate TEXT,
+        certNumber TEXT,
+        notes TEXT
       )`,
     ],
     "write"
@@ -128,12 +137,25 @@ const dbReady = (async () => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const row = <T>(r: any): T => r as T;
 
+export const listPublicUsers = async (): Promise<{ id: number; firstName: string; lastName: string }[]> => {
+  await dbReady;
+  const result = await db.execute(
+    "SELECT id, firstName, lastName FROM users ORDER BY firstName, lastName"
+  );
+  return result.rows as unknown as { id: number; firstName: string; lastName: string }[];
+};
+
 export const listUsers = async (): Promise<Omit<User, "password">[]> => {
   await dbReady;
   const result = await db.execute(
-    "SELECT id, email, firstName, lastName, phone, isAdmin FROM users ORDER BY id"
+    "SELECT id, email, firstName, lastName, phone, isAdmin, isActive FROM users ORDER BY id"
   );
   return result.rows as unknown as Omit<User, "password">[];
+};
+
+export const setUserActive = async (id: number, isActive: 0 | 1): Promise<void> => {
+  await dbReady;
+  await db.execute({ sql: "UPDATE users SET isActive = ? WHERE id = ?", args: [isActive, id] });
 };
 
 export const deleteUser = async (id: number): Promise<void> => {
@@ -201,7 +223,7 @@ export const findSession = async (token: string): Promise<User | null> => {
   await dbReady;
   const now = Math.floor(Date.now() / 1000);
   const result = await db.execute({
-    sql: "SELECT users.* FROM sessions JOIN users ON sessions.userId = users.id WHERE sessions.token = ? AND sessions.expiresAt > ?",
+    sql: "SELECT users.* FROM sessions JOIN users ON sessions.userId = users.id WHERE sessions.token = ? AND sessions.expiresAt > ? AND users.isActive = 1",
     args: [token, now],
   });
   return result.rows[0] ? row<User>(result.rows[0]) : null;
@@ -291,27 +313,112 @@ export const deleteDiveLog = async (id: number, userId: number): Promise<DeleteD
   return { status: "ok", log };
 };
 
+// Certification helpers
+export type Certification = {
+  id: number;
+  userId: number;
+  certName: string;
+  agency?: string;
+  certDate?: string;
+  certNumber?: string;
+  notes?: string;
+};
+
+export const listCertifications = async (userId: number): Promise<Certification[]> => {
+  await dbReady;
+  const result = await db.execute({
+    sql: "SELECT * FROM certifications WHERE userId = ? ORDER BY id",
+    args: [userId],
+  });
+  return result.rows as unknown as Certification[];
+};
+
+export const insertCertification = async (
+  data: Omit<Certification, "id" | "userId">,
+  userId: number
+): Promise<Certification> => {
+  await dbReady;
+  const result = await db.execute({
+    sql: "INSERT INTO certifications (userId, certName, agency, certDate, certNumber, notes) VALUES (?, ?, ?, ?, ?, ?)",
+    args: [userId, data.certName, data.agency ?? null, data.certDate ?? null, data.certNumber ?? null, data.notes ?? null],
+  });
+  const inserted = await db.execute({
+    sql: "SELECT * FROM certifications WHERE id = ?",
+    args: [Number(result.lastInsertRowid)],
+  });
+  return row<Certification>(inserted.rows[0]);
+};
+
+export const updateCertification = async (
+  id: number,
+  userId: number,
+  data: Partial<Omit<Certification, "id" | "userId">>
+): Promise<Certification | null> => {
+  await dbReady;
+  const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) {
+    const result = await db.execute({ sql: "SELECT * FROM certifications WHERE id = ? AND userId = ?", args: [id, userId] });
+    return result.rows[0] ? row<Certification>(result.rows[0]) : null;
+  }
+  const fields = entries.map(([k]) => `${k} = ?`).join(", ");
+  const values = entries.map(([, v]) => v as string | number | null);
+  const res = await db.execute({ sql: `UPDATE certifications SET ${fields} WHERE id = ? AND userId = ?`, args: [...values, id, userId] });
+  if (res.rowsAffected === 0) return null;
+  const updated = await db.execute({ sql: "SELECT * FROM certifications WHERE id = ?", args: [id] });
+  return updated.rows[0] ? row<Certification>(updated.rows[0]) : null;
+};
+
+export const deleteCertification = async (id: number, userId: number): Promise<boolean> => {
+  await dbReady;
+  const res = await db.execute({ sql: "DELETE FROM certifications WHERE id = ? AND userId = ?", args: [id, userId] });
+  return res.rowsAffected > 0;
+};
+
+export const updateCertificationAdmin = async (
+  id: number,
+  data: Partial<Omit<Certification, "id" | "userId">>
+): Promise<Certification | null> => {
+  await dbReady;
+  const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) {
+    const result = await db.execute({ sql: "SELECT * FROM certifications WHERE id = ?", args: [id] });
+    return result.rows[0] ? row<Certification>(result.rows[0]) : null;
+  }
+  const fields = entries.map(([k]) => `${k} = ?`).join(", ");
+  const values = entries.map(([, v]) => v as string | number | null);
+  const res = await db.execute({ sql: `UPDATE certifications SET ${fields} WHERE id = ?`, args: [...values, id] });
+  if (res.rowsAffected === 0) return null;
+  const updated = await db.execute({ sql: "SELECT * FROM certifications WHERE id = ?", args: [id] });
+  return updated.rows[0] ? row<Certification>(updated.rows[0]) : null;
+};
+
+export const deleteCertificationAdmin = async (id: number): Promise<boolean> => {
+  await dbReady;
+  const res = await db.execute({ sql: "DELETE FROM certifications WHERE id = ?", args: [id] });
+  return res.rowsAffected > 0;
+};
+
 // Species helpers
 export type Species = { id: number; name: string; category?: string };
 
 export const listSpecies = async (): Promise<Species[]> => {
   await dbReady;
-  const result = await db.execute(
-    "SELECT id, name, category FROM species_list ORDER BY category, name"
-  );
+  const result = await db.execute("SELECT * FROM species ORDER BY name");
   return result.rows as unknown as Species[];
 };
 
 export const insertSpecies = async (name: string, category?: string): Promise<Species> => {
   await dbReady;
   const result = await db.execute({
-    sql: "INSERT INTO species_list (name, category) VALUES (?, ?)",
+    sql: "INSERT INTO species (name, category) VALUES (?, ?)",
     args: [name, category ?? null],
   });
-  return { id: Number(result.lastInsertRowid), name, category };
+  const inserted = await db.execute({ sql: "SELECT * FROM species WHERE id = ?", args: [Number(result.lastInsertRowid)] });
+  return row<Species>(inserted.rows[0]);
 };
 
-export const deleteSpecies = async (id: number): Promise<void> => {
+export const deleteSpecies = async (id: number): Promise<boolean> => {
   await dbReady;
-  await db.execute({ sql: "DELETE FROM species_list WHERE id = ?", args: [id] });
+  const res = await db.execute({ sql: "DELETE FROM species WHERE id = ?", args: [id] });
+  return res.rowsAffected > 0;
 };

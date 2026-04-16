@@ -16,6 +16,18 @@ export type DiveLogBase = {
   tankEnd?: number;
   notes?: string;
   rating?: number;
+  lat?: number;
+  lng?: number;
+  buddyUserId?: number;
+  wetsuit?: string;
+  bcd?: string;
+  fins?: string;
+  cylinderType?: string;
+  cylinderSize?: number;
+  gasMix?: string;
+  o2Percent?: number;
+  certUsed?: string;
+  marineLife?: string;
 };
 
 export type DiveLog = DiveLogBase & {
@@ -23,6 +35,8 @@ export type DiveLog = DiveLogBase & {
   userId: number;
   firstName?: string;
   lastName?: string;
+  lat?: number;
+  lng?: number;
 };
 
 export const diveLogBaseSchema = Joi.object<DiveLogBase>({

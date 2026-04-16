@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/app/lib/session";
-import MarineLifePage from "@/app/components/MarineLifePage";
+import MapPage from "@/app/components/MapPage";
 
-export default async function MarineLifeRoute() {
+export default async function MapRoute() {
   const user = await getSession();
   if (!user) redirect("/login");
-  return <MarineLifePage user={user} />;
+
+  return <MapPage user={user} />;
 }

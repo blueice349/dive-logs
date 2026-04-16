@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Button, FormGrid, Label } from "@/components/ui/form";
+import LocationPicker from "./LocationPicker";
 import {
   type DiveLog,
   type DiveLogBase,
@@ -26,6 +27,8 @@ type FormValues = {
   tankEnd: string;
   notes: string;
   rating: string;
+  lat: string;
+  lng: string;
 };
 
 const toNum = (s: string) => (s === "" ? undefined : Number(s));
@@ -43,6 +46,8 @@ const toPayload = (data: FormValues): DiveLogBase => ({
   tankEnd: toNum(data.tankEnd),
   notes: data.notes || undefined,
   rating: toNum(data.rating),
+  lat: toNum(data.lat),
+  lng: toNum(data.lng),
 });
 
 type Props =
@@ -158,6 +163,8 @@ export default function DiveLogModal(props: Props) {
       tankEnd: log?.tankEnd != null ? String(log.tankEnd) : "",
       notes: log?.notes ?? "",
       rating: log?.rating != null ? String(log.rating) : "",
+      lat: log?.lat != null ? String(log.lat) : "",
+      lng: log?.lng != null ? String(log.lng) : "",
     },
     mode: "onChange",
     resolver: joiResolver(diveLogBaseSchema),
@@ -370,6 +377,16 @@ export default function DiveLogModal(props: Props) {
                 name="notes"
                 label="Notes"
                 placeholder="Sealife spotted, conditions, gear used..."
+              />
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <LocationPicker
+                lat={form.watch("lat")}
+                lng={form.watch("lng")}
+                onChange={(lat, lng) => {
+                  form.setValue("lat", lat, { shouldDirty: true });
+                  form.setValue("lng", lng, { shouldDirty: true });
+                }}
               />
             </div>
           </FormProvider>

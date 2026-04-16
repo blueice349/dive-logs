@@ -58,6 +58,8 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN tankEnd REAL",
     "ALTER TABLE dive_logs ADD COLUMN notes TEXT",
     "ALTER TABLE dive_logs ADD COLUMN rating INTEGER",
+    "ALTER TABLE dive_logs ADD COLUMN lat REAL",
+    "ALTER TABLE dive_logs ADD COLUMN lng REAL",
   ]) {
     try {
       await db.execute(sql);

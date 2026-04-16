@@ -6,6 +6,9 @@ import { type PublicUser } from "@/app/types/user";
 
 const NAV_LINKS = [
   { label: "Dive Log", href: "/dive-log" },
+  { label: "Stats", href: "/stats" },
+  { label: "Map", href: "/map" },
+  { label: "Marine Life", href: "/marine-life" },
   { label: "Profile", href: "/user-profile" },
 ];
 
@@ -25,6 +28,15 @@ export default function AppHeader({ user }: { user: PublicUser }) {
     router.push("/admin");
     router.refresh();
   };
+
+  useEffect(() => {
+    const id = setInterval(async () => {
+      const res = await fetch("/api/session").catch(() => null);
+      if (res?.status === 401) router.push("/login");
+    }, 60_000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = async () => {
     await fetch("/api/logout", { method: "POST" });

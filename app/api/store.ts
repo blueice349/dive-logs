@@ -42,6 +42,11 @@ const dbReady = (async () => {
         userId INTEGER NOT NULL REFERENCES users(id),
         expiresAt INTEGER NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS species_list (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        category TEXT
+      )`,
     ],
     "write"
   );
@@ -58,11 +63,64 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN tankEnd REAL",
     "ALTER TABLE dive_logs ADD COLUMN notes TEXT",
     "ALTER TABLE dive_logs ADD COLUMN rating INTEGER",
+    "ALTER TABLE dive_logs ADD COLUMN lat REAL",
+    "ALTER TABLE dive_logs ADD COLUMN lng REAL",
+    "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
   ]) {
     try {
       await db.execute(sql);
     } catch {
       // Column already exists — nothing to do
+    }
+  }
+
+  // Seed default species
+  const seeds: Array<{ name: string; category: string }> = [
+    { name: "Clownfish", category: "Fish" },
+    { name: "Blue Tang", category: "Fish" },
+    { name: "Lionfish", category: "Fish" },
+    { name: "Parrotfish", category: "Fish" },
+    { name: "Angelfish", category: "Fish" },
+    { name: "Triggerfish", category: "Fish" },
+    { name: "Moray Eel", category: "Fish" },
+    { name: "Barracuda", category: "Fish" },
+    { name: "Grouper", category: "Fish" },
+    { name: "Surgeonfish", category: "Fish" },
+    { name: "Hammerhead Shark", category: "Shark & Ray" },
+    { name: "Reef Shark", category: "Shark & Ray" },
+    { name: "Bull Shark", category: "Shark & Ray" },
+    { name: "Whale Shark", category: "Shark & Ray" },
+    { name: "Manta Ray", category: "Shark & Ray" },
+    { name: "Stingray", category: "Shark & Ray" },
+    { name: "Eagle Ray", category: "Shark & Ray" },
+    { name: "Green Sea Turtle", category: "Turtle & Reptile" },
+    { name: "Hawksbill Sea Turtle", category: "Turtle & Reptile" },
+    { name: "Sea Snake", category: "Turtle & Reptile" },
+    { name: "Blue-ringed Octopus", category: "Invertebrate" },
+    { name: "Giant Clam", category: "Invertebrate" },
+    { name: "Nudibranch", category: "Invertebrate" },
+    { name: "Feather Star", category: "Invertebrate" },
+    { name: "Crown-of-Thorns Starfish", category: "Invertebrate" },
+    { name: "Sea Urchin", category: "Invertebrate" },
+    { name: "Lobster", category: "Invertebrate" },
+    { name: "Shrimp", category: "Invertebrate" },
+    { name: "Dolphin", category: "Marine Mammal" },
+    { name: "Humpback Whale", category: "Marine Mammal" },
+    { name: "Common Octopus", category: "Cephalopod" },
+    { name: "Squid", category: "Cephalopod" },
+    { name: "Cuttlefish", category: "Cephalopod" },
+    { name: "Brain Coral", category: "Coral & Plant" },
+    { name: "Sea Fan", category: "Coral & Plant" },
+    { name: "Staghorn Coral", category: "Coral & Plant" },
+  ];
+  for (const s of seeds) {
+    try {
+      await db.execute({
+        sql: "INSERT OR IGNORE INTO species_list (name, category) VALUES (?, ?)",
+        args: [s.name, s.category],
+      });
+    } catch {
+      // ignore
     }
   }
 })();
@@ -231,4 +289,29 @@ export const deleteDiveLog = async (id: number, userId: number): Promise<DeleteD
   if (log.userId !== userId) return { status: "forbidden" };
   await db.execute({ sql: "DELETE FROM dive_logs WHERE id = ?", args: [id] });
   return { status: "ok", log };
+};
+
+// Species helpers
+export type Species = { id: number; name: string; category?: string };
+
+export const listSpecies = async (): Promise<Species[]> => {
+  await dbReady;
+  const result = await db.execute(
+    "SELECT id, name, category FROM species_list ORDER BY category, name"
+  );
+  return result.rows as unknown as Species[];
+};
+
+export const insertSpecies = async (name: string, category?: string): Promise<Species> => {
+  await dbReady;
+  const result = await db.execute({
+    sql: "INSERT INTO species_list (name, category) VALUES (?, ?)",
+    args: [name, category ?? null],
+  });
+  return { id: Number(result.lastInsertRowid), name, category };
+};
+
+export const deleteSpecies = async (id: number): Promise<void> => {
+  await dbReady;
+  await db.execute({ sql: "DELETE FROM species_list WHERE id = ?", args: [id] });
 };

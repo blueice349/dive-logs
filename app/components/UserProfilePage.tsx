@@ -10,6 +10,7 @@ import { Field, Card, Button, FormGrid } from "@/components/ui/form";
 import { type PublicUser } from "@/app/types/user";
 import { profileSchema, passwordSchema, type ProfileValues, type PasswordValues } from "@/app/api/users/data";
 import Joi from "joi";
+import CertsTab from "./CertsTab";
 
 type ProfileFormValues = ProfileValues;
 type PasswordFormValues = PasswordValues & { confirmPassword: string };
@@ -172,9 +173,13 @@ function PasswordForm({ user }: { user: PublicUser }) {
   );
 }
 
+type Tab = "profile" | "certifications";
+
 export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const [certsLoaded, setCertsLoaded] = useState(false);
 
   const handleDelete = async () => {
     const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
@@ -189,30 +194,73 @@ export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
     }
   };
 
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    if (tab === "certifications") setCertsLoaded(true);
+  };
+
+  const tabStyle = (tab: Tab) => ({
+    padding: "10px 20px",
+    border: "none",
+    borderBottom: activeTab === tab ? "3px solid #1565c0" : "3px solid transparent",
+    background: "none",
+    fontWeight: activeTab === tab ? 700 : 400,
+    color: activeTab === tab ? "#1565c0" : "#555",
+    cursor: "pointer",
+    fontSize: 15,
+    fontFamily: "inherit",
+    transition: "color 0.15s",
+  });
+
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
       <AppHeader user={user} />
 
       <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
-        <h1 style={{ margin: "0 0 24px", fontSize: 28 }}>My Profile</h1>
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        <ProfileForm user={user} />
-        <PasswordForm user={user} />
+        <h1 style={{ margin: "0 0 16px", fontSize: 28 }}>My Profile</h1>
 
-        {/* Danger Zone */}
-        <Card>
-          <h2 style={{ marginTop: 0, fontSize: 20, color: "#d32f2f" }}>
-            Danger Zone
-          </h2>
-          <p style={{ color: "#555", marginBottom: 16 }}>
-            Permanently delete your account and all associated data. This action
-            cannot be undone.
-          </p>
-          <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
-            Delete Account
-          </Button>
-        </Card>
+        {/* Tab bar */}
+        <div
+          style={{
+            display: "flex",
+            borderBottom: "1px solid #dde3ec",
+            marginBottom: 24,
+          }}
+        >
+          <button style={tabStyle("profile")} onClick={() => handleTabChange("profile")}>
+            Profile
+          </button>
+          <button style={tabStyle("certifications")} onClick={() => handleTabChange("certifications")}>
+            Certifications
+          </button>
         </div>
+
+        {activeTab === "profile" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <ProfileForm user={user} />
+            <PasswordForm user={user} />
+
+            {/* Danger Zone */}
+            <Card>
+              <h2 style={{ marginTop: 0, fontSize: 20, color: "#d32f2f" }}>
+                Danger Zone
+              </h2>
+              <p style={{ color: "#555", marginBottom: 16 }}>
+                Permanently delete your account and all associated data. This action
+                cannot be undone.
+              </p>
+              <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
+                Delete Account
+              </Button>
+            </Card>
+          </div>
+        )}
+
+        {certsLoaded && (
+          <div style={{ display: activeTab === "certifications" ? "block" : "none" }}>
+            <CertsTab user={user} />
+          </div>
+        )}
       </div>
 
       {showDeleteConfirm && (

@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/app/lib/session";
-import StatsPage from "@/app/components/StatsPage";
+import MapPage from "@/app/components/MapPage";
 
-export default async function StatsRoute() {
+export default async function MapRoute() {
   const user = await getSession();
   if (!user) redirect("/login");
 
-  return <StatsPage user={user} />;
+  return <MapPage user={user} />;
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useForm, FormProvider, useFormContext } from "react-hook-form";
+import { useEffect, useState, KeyboardEvent } from "react";
+import { useForm, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Button, FormGrid, Label } from "@/components/ui/form";
+import LocationPicker from "./LocationPicker";
 import {
   type DiveLog,
   type DiveLogBase,
@@ -16,6 +17,13 @@ import {
   CYLINDER_TYPES,
 } from "@/app/api/logs/data";
 import { type PublicUser } from "@/app/types/user";
+import LocationPicker from "./LocationPicker";
+
+type Certification = {
+  id: number;
+  certName: string;
+  agency?: string;
+};
 
 type FormValues = {
   location: string;
@@ -60,17 +68,18 @@ const toPayload = (data: FormValues, tags: string[]): DiveLogBase => ({
   tankEnd: toNum(data.tankEnd),
   notes: data.notes || undefined,
   rating: toNum(data.rating),
-  lat: toNum(data.lat),
-  lng: toNum(data.lng),
-  wetsuit: data.wetsuit || undefined,
-  bcd: data.bcd || undefined,
-  fins: data.fins || undefined,
-  cylinderType: (data.cylinderType as CylinderType) || undefined,
-  cylinderSize: toNum(data.cylinderSize),
-  gasMix: (data.gasMix as GasMix) || undefined,
-  o2Percent: toNum(data.o2Percent),
-  certUsed: data.certUsed || undefined,
-  marineLife: tags.length > 0 ? tags.join(", ") : undefined,
+  // extended fields — cast via spread since DiveLogBase schema may not include them
+  ...(data.lat !== "" ? { lat: Number(data.lat) } : {}),
+  ...(data.lng !== "" ? { lng: Number(data.lng) } : {}),
+  ...(data.certUsed ? { certUsed: data.certUsed } : {}),
+  ...(data.marineLife ? { marineLife: data.marineLife } : {}),
+  ...(data.wetsuit ? { wetsuit: data.wetsuit } : {}),
+  ...(data.bcd ? { bcd: data.bcd } : {}),
+  ...(data.fins ? { fins: data.fins } : {}),
+  ...(data.cylinderType ? { cylinderType: data.cylinderType } : {}),
+  ...(data.cylinderSize !== "" ? { cylinderSize: Number(data.cylinderSize) } : {}),
+  ...(data.gasMix ? { gasMix: data.gasMix } : {}),
+  ...(data.o2Percent !== "" ? { o2Percent: Number(data.o2Percent) } : {}),
 });
 
 type Props =
@@ -99,13 +108,153 @@ function TextareaField({ name, label, placeholder }: { name: keyof FormValues; l
   );
 }
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
+function MarineLifeTags({
+  value,
+  onChange,
+  speciesSuggestions,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  speciesSuggestions: string[];
+}) {
+  const [input, setInput] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const tags = value ? value.split(",").map((t) => t.trim()).filter(Boolean) : [];
+
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed || tags.includes(trimmed)) { setInput(""); return; }
+    onChange([...tags, trimmed].join(", "));
+    setInput("");
+    setShowSuggestions(false);
+  };
+
+  const removeTag = (tag: string) => {
+    onChange(tags.filter((t) => t !== tag).join(", "));
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(input);
+    } else if (e.key === "Backspace" && input === "" && tags.length > 0) {
+      removeTag(tags[tags.length - 1]);
+    }
+  };
+
+  const filtered = speciesSuggestions.filter(
+    (s) => s.toLowerCase().includes(input.toLowerCase()) && !tags.includes(s)
+  ).slice(0, 6);
+
   return (
-    <p style={{ margin: "16px 0 8px", fontWeight: 600, fontSize: 13, color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-      {children}
-    </p>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <Label htmlFor="marineLife-input">Marine Life Spotted</Label>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 6,
+          padding: "8px 10px",
+          borderRadius: 6,
+          border: "1px solid #ccc",
+          background: "white",
+          minHeight: 44,
+          cursor: "text",
+          alignItems: "center",
+          position: "relative",
+        }}
+        onClick={() => document.getElementById("marineLife-input")?.focus()}
+      >
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            style={{
+              background: "#e3f2fd",
+              color: "#1565c0",
+              borderRadius: 4,
+              padding: "2px 8px",
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#1565c0", lineHeight: 1, fontSize: 14 }}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          id="marineLife-input"
+          value={input}
+          onChange={(e) => { setInput(e.target.value); setShowSuggestions(true); }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          placeholder={tags.length === 0 ? "Type species and press Enter..." : ""}
+          style={{
+            border: "none",
+            outline: "none",
+            fontSize: 14,
+            flex: 1,
+            minWidth: 120,
+            background: "transparent",
+          }}
+        />
+        {showSuggestions && filtered.length > 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: "white",
+              border: "1px solid #dde3ec",
+              borderRadius: 6,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              zIndex: 300,
+              marginTop: 2,
+              overflow: "hidden",
+            }}
+          >
+            {filtered.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); addTag(s); }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "8px 12px",
+                  background: "none",
+                  border: "none",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  color: "#222",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f0f4f8"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getLogField = (log: DiveLog | null, field: string): any =>
+  log ? (log as unknown as Record<string, unknown>)[field] : undefined;
 
 export default function DiveLogModal(props: Props) {
   const { mode, currentUser, onSave, onClose } = props;
@@ -117,6 +266,8 @@ export default function DiveLogModal(props: Props) {
   const [selectedUserId, setSelectedUserId] = useState<number>(
     mode === "edit" ? props.log.userId ?? currentUser.id : currentUser.id
   );
+  const [certifications, setCertifications] = useState<Certification[]>([]);
+  const [speciesList, setSpeciesList] = useState<string[]>([]);
 
   // Marine life tags (managed outside react-hook-form)
   const log = mode === "edit" ? props.log : null;
@@ -136,11 +287,37 @@ export default function DiveLogModal(props: Props) {
   }, [currentUser.isAdmin]);
 
   useEffect(() => {
-    const url = Boolean(currentUser.isAdmin) && selectedUserId !== currentUser.id
+    const url = currentUser.isAdmin && selectedUserId !== currentUser.id
       ? `/api/certifications?userId=${selectedUserId}`
       : "/api/certifications";
-    fetch(url).then((r) => r.ok ? r.json() : []).then(setCertifications);
-  }, [selectedUserId, currentUser.isAdmin, currentUser.id]);
+    fetch(url)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setCertifications)
+      .catch(() => setCertifications([]));
+  }, [currentUser.isAdmin, currentUser.id, selectedUserId]);
+
+  useEffect(() => {
+    fetch("/api/species")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: unknown[]) => {
+        if (Array.isArray(data)) {
+          setSpeciesList(
+            data
+              .map((s) =>
+                typeof s === "string"
+                  ? s
+                  : (s as Record<string, unknown>).name
+                    ? String((s as Record<string, unknown>).name)
+                    : null
+              )
+              .filter((s): s is string => s !== null)
+          );
+        }
+      })
+      .catch(() => setSpeciesList([]));
+  }, []);
+
+  const log = mode === "edit" ? props.log : null;
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -157,21 +334,26 @@ export default function DiveLogModal(props: Props) {
       tankEnd: log?.tankEnd != null ? String(log.tankEnd) : "",
       notes: log?.notes ?? "",
       rating: log?.rating != null ? String(log.rating) : "",
-      lat: log?.lat != null ? String(log.lat) : "",
-      lng: log?.lng != null ? String(log.lng) : "",
-      wetsuit: log?.wetsuit ?? "",
-      bcd: log?.bcd ?? "",
-      fins: log?.fins ?? "",
-      cylinderType: log?.cylinderType ?? "",
-      cylinderSize: log?.cylinderSize != null ? String(log.cylinderSize) : "",
-      gasMix: log?.gasMix ?? "",
-      o2Percent: log?.o2Percent != null ? String(log.o2Percent) : "",
-      certUsed: log?.certUsed ?? "",
-      marineLife: "",
+      lat: getLogField(log, "lat") != null ? String(getLogField(log, "lat")) : "",
+      lng: getLogField(log, "lng") != null ? String(getLogField(log, "lng")) : "",
+      certUsed: getLogField(log, "certUsed") ?? "",
+      marineLife: getLogField(log, "marineLife") ?? "",
+      wetsuit: getLogField(log, "wetsuit") ?? "",
+      bcd: getLogField(log, "bcd") ?? "",
+      fins: getLogField(log, "fins") ?? "",
+      cylinderType: getLogField(log, "cylinderType") ?? "",
+      cylinderSize: getLogField(log, "cylinderSize") != null ? String(getLogField(log, "cylinderSize")) : "",
+      gasMix: getLogField(log, "gasMix") ?? "",
+      o2Percent: getLogField(log, "o2Percent") != null ? String(getLogField(log, "o2Percent")) : "",
     },
     mode: "onChange",
     resolver: joiResolver(diveLogBaseSchema),
   });
+
+  const { watch, setValue } = form;
+  const lat = watch("lat");
+  const lng = watch("lng");
+  const marineLife = watch("marineLife");
 
   const handleSubmit = form.handleSubmit(async (data) => {
     const url = mode === "edit" ? `/api/logs/${props.log.id}` : "/api/logs";
@@ -222,8 +404,7 @@ export default function DiveLogModal(props: Props) {
           )}
 
           <FormProvider {...form}>
-            {/* ── Dive Info ── */}
-            <SectionHeading>Dive Info</SectionHeading>
+            <SectionLabel>Dive Info</SectionLabel>
             <FormGrid cols={2}>
               <Field<FormValues> name="location" label="Location" placeholder="e.g. Blue Hole, Dahab" rules={{ required: true }} />
               <Field<FormValues> name="date" label="Date" type="date" rules={{ required: true }} />
@@ -231,15 +412,133 @@ export default function DiveLogModal(props: Props) {
               <Field<FormValues> name="duration" label="Duration (min)" placeholder="e.g. 45" rules={{ required: true }} />
             </FormGrid>
 
-            {/* ── Conditions ── */}
-            <SectionHeading>Conditions</SectionHeading>
+            <SectionLabel>Location</SectionLabel>
+            <div style={{ marginBottom: 12 }}>
+              <LocationPicker
+                lat={lat}
+                lng={lng}
+                onChange={(newLat, newLng) => {
+                  setValue("lat", newLat, { shouldDirty: true });
+                  setValue("lng", newLng, { shouldDirty: true });
+                }}
+              />
+            </div>
+
+            <SectionLabel>Conditions</SectionLabel>
             <FormGrid cols={2}>
               <SelectField name="diveType" label="Dive Type">
                 <option value="">— Select —</option>
                 {DIVE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </SelectField>
-              <Field<FormValues> name="visibility" label="Visibility (ft)" placeholder="e.g. 40" />
-              <Field<FormValues> name="waterTemp" label="Water Temp (°F)" placeholder="e.g. 78" />
+              <Field<FormValues>
+                name="buddy"
+                label="Buddy"
+                placeholder="Dive buddy name"
+              />
+              <Field<FormValues>
+                name="visibility"
+                label="Visibility (ft)"
+                placeholder="e.g. 40"
+              />
+              <Field<FormValues>
+                name="waterTemp"
+                label="Water Temp (°F)"
+                placeholder="e.g. 78"
+              />
+            </FormGrid>
+
+            <SectionLabel>Tank &amp; Gear</SectionLabel>
+            <FormGrid cols={2}>
+              <Field<FormValues>
+                name="tankStart"
+                label="Tank Start (PSI)"
+                placeholder="e.g. 3000"
+              />
+              <Field<FormValues>
+                name="tankEnd"
+                label="Tank End (PSI)"
+                placeholder="e.g. 500"
+              />
+              <Field<FormValues>
+                name="wetsuit"
+                label="Wetsuit"
+                placeholder="e.g. 5mm full"
+              />
+              <Field<FormValues>
+                name="bcd"
+                label="BCD"
+                placeholder="e.g. Scubapro Hydros"
+              />
+              <Field<FormValues>
+                name="fins"
+                label="Fins"
+                placeholder="e.g. Mares Avanti"
+              />
+              <Field<FormValues>
+                name="cylinderType"
+                label="Cylinder Type"
+                placeholder="e.g. Steel 80"
+              />
+              <Field<FormValues>
+                name="cylinderSize"
+                label="Cylinder Size (L)"
+                placeholder="e.g. 12"
+              />
+              <SelectField name="gasMix" label="Gas Mix">
+                <option value="">— Select —</option>
+                <option value="Air">Air</option>
+                <option value="Nitrox">Nitrox</option>
+                <option value="Trimix">Trimix</option>
+                <option value="Heliox">Heliox</option>
+                <option value="Oxygen">Oxygen</option>
+              </SelectField>
+              <Field<FormValues>
+                name="o2Percent"
+                label="O2 %"
+                placeholder="e.g. 32"
+              />
+              {/* Cert used dropdown */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <Label htmlFor="certUsed">Certification Used</Label>
+                <select
+                  id="certUsed"
+                  {...form.register("certUsed")}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #ccc",
+                    fontSize: 16,
+                    color: "#222",
+                    boxSizing: "border-box",
+                    width: "100%",
+                    background: "white",
+                  }}
+                >
+                  <option value="">— None —</option>
+                  {certifications.map((c) => (
+                    <option key={c.id} value={c.certName}>
+                      {c.certName}{c.agency ? ` (${c.agency})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </FormGrid>
+
+            <SectionLabel>Marine Life &amp; Notes</SectionLabel>
+            <div style={{ marginBottom: 12 }}>
+              <Controller
+                control={form.control}
+                name="marineLife"
+                render={() => (
+                  <MarineLifeTags
+                    value={marineLife}
+                    onChange={(v) => setValue("marineLife", v, { shouldDirty: true })}
+                    speciesSuggestions={speciesList}
+                  />
+                )}
+              />
+            </div>
+            <FormGrid cols={2}>
               <SelectField name="rating" label="Rating">
                 <option value="">— Select —</option>
                 <option value="5">★★★★★ (5)</option>
@@ -249,90 +548,11 @@ export default function DiveLogModal(props: Props) {
                 <option value="1">★☆☆☆☆ (1)</option>
               </SelectField>
             </FormGrid>
-
-            {/* ── Buddy ── */}
-            <SectionHeading>Buddy</SectionHeading>
-            <FormGrid cols={2}>
-              <Field<FormValues> name="buddy" label="Buddy Name" placeholder="Dive buddy name" />
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <Label htmlFor="buddyUserId">Buddy (App User)</Label>
-                <select id="buddyUserId" {...form.register("buddyUserId")}
-                  style={{ padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 16, color: "#222", width: "100%", background: "white", boxSizing: "border-box" }}>
-                  <option value="">— None —</option>
-                  {publicUsers.filter((u) => u.id !== currentUser.id).map((u) => (
-                    <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
-                  ))}
-                </select>
-              </div>
-            </FormGrid>
-
-            {/* ── Tank ── */}
-            <SectionHeading>Tank</SectionHeading>
-            <FormGrid cols={2}>
-              <Field<FormValues> name="tankStart" label="Tank Start (PSI)" placeholder="e.g. 3000" />
-              <Field<FormValues> name="tankEnd" label="Tank End (PSI)" placeholder="e.g. 500" />
-              <SelectField name="gasMix" label="Gas Mix">
-                <option value="">— Select —</option>
-                {GAS_MIXES.map((g) => <option key={g} value={g}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>)}
-              </SelectField>
-              {gasMixValue === "nitrox" || gasMixValue === "trimix" ? (
-                <Field<FormValues> name="o2Percent" label="O2 %" placeholder="e.g. 32" />
-              ) : <div />}
-            </FormGrid>
-
-            {/* ── Gear ── */}
-            <SectionHeading>Gear</SectionHeading>
-            <FormGrid cols={2}>
-              <Field<FormValues> name="wetsuit" label="Wetsuit" placeholder="e.g. 3mm full" />
-              <Field<FormValues> name="bcd" label="BCD" placeholder="e.g. Scubapro Hydros" />
-              <Field<FormValues> name="fins" label="Fins" placeholder="e.g. Mares Avanti" />
-              <SelectField name="cylinderType" label="Cylinder Type">
-                <option value="">— Select —</option>
-                {CYLINDER_TYPES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-              </SelectField>
-              <Field<FormValues> name="cylinderSize" label="Cylinder Size (L)" placeholder="e.g. 12" />
-            </FormGrid>
-
-            {/* ── Certification ── */}
-            <SectionHeading>Certification Used</SectionHeading>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <Label htmlFor="certUsed">Cert Used</Label>
-              <select id="certUsed" {...form.register("certUsed")}
-                style={{ padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 16, color: "#222", width: "100%", background: "white", boxSizing: "border-box" }}>
-                <option value="">— None —</option>
-                {certifications.map((c) => (
-                  <option key={c.id} value={c.certName}>{c.certName}{c.agency ? ` (${c.agency})` : ""}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* ── Marine Life ── */}
-            <SectionHeading>Marine Life</SectionHeading>
-            <div style={{ position: "relative" }}>
-              {tags.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                  {tags.map((t) => (
-                    <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#e3f0ff", color: "#1565c0", borderRadius: 16, padding: "3px 10px", fontSize: 13 }}>
-                      {t}
-                      <button type="button" onClick={() => removeTag(t)} style={{ background: "none", border: "none", cursor: "pointer", color: "#1565c0", fontSize: 14, padding: 0, lineHeight: 1 }}>✕</button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <input
-                ref={tagInputRef}
-                type="text"
-                value={tagInput}
-                onChange={(e) => {
-                  setTagInput(e.target.value);
-                  if (tagInputRef.current) setDropdownRect(tagInputRef.current.getBoundingClientRect());
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => { if (tagInputRef.current) setDropdownRect(tagInputRef.current.getBoundingClientRect()); setShowSuggestions(true); }}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (tagInput.trim()) addTag(tagInput.trim()); } }}
-                placeholder="Type to search species, Enter to add…"
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 14, color: "#222", boxSizing: "border-box" }}
+            <div style={{ marginTop: 12, marginBottom: 16 }}>
+              <TextareaField
+                name="notes"
+                label="Notes"
+                placeholder="Sealife spotted, conditions, gear used..."
               />
               {showSuggestions && filteredSuggestions.length > 0 && dropdownRect && (
                 <div style={{ position: "fixed", top: dropdownRect.bottom + 4, left: dropdownRect.left, width: dropdownRect.width, background: "white", border: "1px solid #dde3ec", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", zIndex: 500, maxHeight: 200, overflowY: "auto" }}>
@@ -348,17 +568,16 @@ export default function DiveLogModal(props: Props) {
                 </div>
               )}
             </div>
-
-            {/* ── Location ── */}
-            <SectionHeading>Location (for map)</SectionHeading>
-            <FormGrid cols={2}>
-              <Field<FormValues> name="lat" label="Latitude" placeholder="e.g. 27.9158" />
-              <Field<FormValues> name="lng" label="Longitude" placeholder="e.g. 34.3299" />
-            </FormGrid>
-
-            {/* ── Notes ── */}
-            <SectionHeading>Notes</SectionHeading>
-            <TextareaField name="notes" label="Notes" placeholder="Conditions, observations, anything else…" />
+            <div style={{ marginTop: 16 }}>
+              <LocationPicker
+                lat={form.watch("lat")}
+                lng={form.watch("lng")}
+                onChange={(lat, lng) => {
+                  form.setValue("lat", lat, { shouldDirty: true });
+                  form.setValue("lng", lng, { shouldDirty: true });
+                }}
+              />
+            </div>
           </FormProvider>
         </div>
 
@@ -374,5 +593,22 @@ export default function DiveLogModal(props: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      style={{
+        margin: "16px 0 8px",
+        fontWeight: 600,
+        fontSize: 13,
+        color: "#666",
+        textTransform: "uppercase",
+        letterSpacing: "0.5px",
+      }}
+    >
+      {children}
+    </p>
   );
 }

@@ -1,17 +1,42 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { type PublicUser } from "@/app/types/user";
 
 const NAV_LINKS = [
   { label: "Dive Log", href: "/dive-log" },
   { label: "Stats", href: "/stats" },
+  { label: "Map", href: "/map" },
+  { label: "Marine Life", href: "/marine-life" },
   { label: "Profile", href: "/user-profile" },
 ];
 
 export default function AppHeader({ user }: { user: PublicUser }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [impersonating, setImpersonating] = useState<{ adminName: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/impersonating")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.impersonating) setImpersonating({ adminName: data.adminName }); });
+  }, []);
+
+  const handleStopImpersonating = async () => {
+    await fetch("/api/admin/unimpersonate", { method: "POST" });
+    router.push("/admin");
+    router.refresh();
+  };
+
+  useEffect(() => {
+    const id = setInterval(async () => {
+      const res = await fetch("/api/session").catch(() => null);
+      if (res?.status === 401) router.push("/login");
+    }, 60_000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = async () => {
     await fetch("/api/logout", { method: "POST" });
@@ -19,6 +44,15 @@ export default function AppHeader({ user }: { user: PublicUser }) {
   };
 
   return (
+    <>
+    {impersonating && (
+      <div style={{ background: "#e65100", color: "white", textAlign: "center", padding: "8px 16px", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, position: "sticky", top: 0, zIndex: 101 }}>
+        <span>👁 Viewing as <strong>{user.firstName} {user.lastName}</strong> — logged in as {impersonating.adminName}</span>
+        <button onClick={handleStopImpersonating} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 6, color: "white", fontSize: 13, padding: "3px 12px", cursor: "pointer" }}>
+          Return to Admin
+        </button>
+      </div>
+    )}
     <header
       style={{
         background: "linear-gradient(135deg, #0d47a1 0%, #1976d2 100%)",
@@ -102,5 +136,6 @@ export default function AppHeader({ user }: { user: PublicUser }) {
         </div>
       </div>
     </header>
+    </>
   );
 }

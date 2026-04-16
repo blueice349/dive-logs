@@ -7,157 +7,224 @@ import AppHeader from "./AppHeader";
 import Spinner from "./Spinner";
 import { Card } from "@/components/ui/form";
 
+function sacRate(log: DiveLog): number | null {
+  if (log.tankStart == null || log.tankEnd == null || log.depth == null || log.duration == null || log.duration === 0) return null;
+  return ((log.tankStart - log.tankEnd) * 33) / ((log.depth + 33) * log.duration);
+}
+
+function fmt(n: number, decimals = 1) {
+  return n.toFixed(decimals);
+}
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <Card style={{ textAlign: "center", padding: "20px 16px", marginBottom: 0 }}>
+      <div style={{ fontSize: 32, fontWeight: 700, color: "#1565c0" }}>{value}</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "#333", marginTop: 4 }}>{label}</div>
+      {sub && <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{sub}</div>}
+    </Card>
+  );
+}
+
 type Filter = "mine" | "all";
-
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div style={{ background: "white", borderRadius: 10, padding: "16px 20px", flex: 1, minWidth: 130, boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #e0e7ef" }}>
-      <div style={{ fontSize: 26, fontWeight: 700, color: "#1565c0" }}>{value}</div>
-      <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>{label}</div>
-      {sub && <div style={{ fontSize: 11, color: "#aaa", marginTop: 1 }}>{sub}</div>}
-    </div>
-  );
-}
-
-function BarChart({ data, label }: { data: { key: string; count: number }[]; label: string }) {
-  const max = Math.max(...data.map((d) => d.count), 1);
-  return (
-    <div>
-      <h3 style={{ margin: "0 0 12px", fontSize: 15, color: "#1976d2", fontWeight: 700 }}>{label}</h3>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {data.map(({ key, count }) => (
-          <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 100, fontSize: 13, color: "#555", textAlign: "right", flexShrink: 0 }}>{key}</div>
-            <div style={{ flex: 1, background: "#f0f4f8", borderRadius: 4, height: 20, overflow: "hidden" }}>
-              <div style={{ width: `${(count / max) * 100}%`, background: "linear-gradient(90deg, #1565c0, #42a5f5)", height: "100%", borderRadius: 4, transition: "width 0.4s" }} />
-            </div>
-            <div style={{ width: 24, fontSize: 13, color: "#1565c0", fontWeight: 600, flexShrink: 0 }}>{count}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function StatsPage({ user }: { user: PublicUser }) {
   const [logs, setLogs] = useState<DiveLog[]>([]);
   const [filter, setFilter] = useState<Filter>("mine");
-  const [loadedFilter, setLoadedFilter] = useState<Filter | null>(null);
-  const loading = loadedFilter !== filter;
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
-    let cancelled = false;
-    fetch(url)
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => {
-        if (!cancelled) { setLogs(data); setLoadedFilter(filter); }
-      });
-    return () => { cancelled = true; };
+    fetch(url).then((r) => {
+      if (r.ok) r.json().then((data) => { setLogs(data); setLoading(false); });
+      else setLoading(false);
+    });
   }, [filter]);
 
-  // Computed stats
+  const toggle = user.isAdmin ? (
+    <div style={{ display: "flex", background: "#e0e7ef", borderRadius: 8, padding: 3, gap: 2, width: "fit-content", marginBottom: 20 }}>
+      {(["mine", "all"] as Filter[]).map((f) => (
+        <button
+          key={f}
+          onClick={() => setFilter(f)}
+          style={{ background: filter === f ? "white" : "transparent", border: "none", borderRadius: 6, padding: "5px 16px", fontSize: 14, fontWeight: filter === f ? 600 : 400, color: filter === f ? "#1565c0" : "#555", cursor: "pointer", boxShadow: filter === f ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}
+        >
+          {f === "mine" ? "My Dives" : "All Dives"}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  if (loading || logs.length === 0) {
+    return (
+      <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
+        <AppHeader user={user} />
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
+          <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>My Dive Stats</h1>
+          {toggle}
+          {loading ? <Spinner /> : (
+            <div style={{ padding: "40px 0", textAlign: "center", color: "#888" }}>
+              No dive logs yet. Start logging dives to see your stats!
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  // Core stats
   const totalDives = logs.length;
-  const totalDepth = logs.reduce((s, l) => s + l.depth, 0);
-  const totalTime = logs.reduce((s, l) => s + l.duration, 0);
-  const avgDepth = totalDives ? (totalDepth / totalDives).toFixed(1) : "—";
-  const avgDuration = totalDives ? Math.round(totalTime / totalDives) : 0;
-  const maxDepth = totalDives ? Math.max(...logs.map((l) => l.depth)) : 0;
-  const avgRating = (() => {
-    const rated = logs.filter((l) => l.rating != null);
-    if (!rated.length) return null;
-    return (rated.reduce((s, l) => s + l.rating!, 0) / rated.length).toFixed(1);
-  })();
+  const totalMinutes = logs.reduce((s, l) => s + (l.duration ?? 0), 0);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const remainingMins = totalMinutes % 60;
+  const deepest = Math.max(...logs.map((l) => l.depth ?? 0));
+  const avgDepth = logs.reduce((s, l) => s + (l.depth ?? 0), 0) / totalDives;
+  const avgDuration = totalMinutes / totalDives;
 
-  // By month (last 12)
-  const byMonth: Record<string, number> = {};
-  logs.forEach((l) => {
-    const m = l.date.slice(0, 7);
-    byMonth[m] = (byMonth[m] ?? 0) + 1;
-  });
-  const monthData = Object.entries(byMonth)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-12)
-    .map(([key, count]) => ({ key: key.slice(0, 7), count }));
+  const ratedLogs = logs.filter((l) => l.rating != null);
+  const avgRating = ratedLogs.length ? ratedLogs.reduce((s, l) => s + l.rating!, 0) / ratedLogs.length : null;
 
-  // By dive type
-  const byType: Record<string, number> = {};
-  logs.forEach((l) => { if (l.diveType) byType[l.diveType] = (byType[l.diveType] ?? 0) + 1; });
-  const typeData = Object.entries(byType).sort(([, a], [, b]) => b - a).map(([key, count]) => ({ key, count }));
-
-  // By rating
-  const byRating: Record<string, number> = {};
-  logs.forEach((l) => { if (l.rating) { const k = "★".repeat(l.rating); byRating[k] = (byRating[k] ?? 0) + 1; } });
-  const ratingData = Object.entries(byRating).sort(([a], [b]) => b.length - a.length).map(([key, count]) => ({ key, count }));
+  // SAC rate
+  const sacLogs = logs.map(sacRate).filter((v): v is number => v !== null);
+  const avgSac = sacLogs.length ? sacLogs.reduce((a, b) => a + b, 0) / sacLogs.length : null;
 
   // Top locations
-  const byLocation: Record<string, number> = {};
-  logs.forEach((l) => { byLocation[l.location] = (byLocation[l.location] ?? 0) + 1; });
-  const locationData = Object.entries(byLocation).sort(([, a], [, b]) => b - a).slice(0, 8).map(([key, count]) => ({ key, count }));
+  const locationCount: Record<string, number> = {};
+  logs.forEach((l) => { locationCount[l.location] = (locationCount[l.location] ?? 0) + 1; });
+  const topLocations = Object.entries(locationCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  // Dive type breakdown
+  const typeCount: Record<string, number> = {};
+  logs.forEach((l) => { if (l.diveType) typeCount[l.diveType] = (typeCount[l.diveType] ?? 0) + 1; });
+  const typeEntries = Object.entries(typeCount).sort((a, b) => b[1] - a[1]);
+
+  // Dives per month (last 12 months)
+  const now = new Date();
+  const months: { label: string; count: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    const count = logs.filter((l) => l.date.startsWith(key)).length;
+    months.push({ label, count });
+  }
+  const maxMonthCount = Math.max(...months.map((m) => m.count), 1);
+
+  // Visibility & temp averages
+  const visLogs = logs.filter((l) => l.visibility != null);
+  const avgVis = visLogs.length ? visLogs.reduce((s, l) => s + l.visibility!, 0) / visLogs.length : null;
+  const tempLogs = logs.filter((l) => l.waterTemp != null);
+  const avgTemp = tempLogs.length ? tempLogs.reduce((s, l) => s + l.waterTemp!, 0) / tempLogs.length : null;
 
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
       <AppHeader user={user} />
       <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h1 style={{ margin: 0, fontSize: 28 }}>Dive Stats</h1>
-          {Boolean(user.isAdmin) && (
-            <div style={{ display: "flex", background: "#e0e7ef", borderRadius: 8, padding: 3, gap: 2 }}>
-              {(["mine", "all"] as Filter[]).map((f) => (
-                <button key={f} onClick={() => setFilter(f)} style={{ background: filter === f ? "white" : "transparent", border: "none", borderRadius: 6, padding: "5px 16px", fontSize: 14, fontWeight: filter === f ? 600 : 400, color: filter === f ? "#1565c0" : "#555", cursor: "pointer", boxShadow: filter === f ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
-                  {f === "mine" ? "My Dives" : "All Dives"}
-                </button>
-              ))}
-            </div>
-          )}
+        <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>
+          {filter === "all" ? "All Divers Stats" : "My Dive Stats"}
+        </h1>
+        {toggle}
+
+        {/* Top stat cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 16, marginBottom: 24 }}>
+          <StatCard label="Total Dives" value={String(totalDives)} />
+          <StatCard label="Bottom Time" value={`${totalHours}h ${remainingMins}m`} sub={`${totalMinutes} min total`} />
+          <StatCard label="Deepest Dive" value={`${deepest} ft`} />
+          <StatCard label="Avg Depth" value={`${fmt(avgDepth)} ft`} />
+          <StatCard label="Avg Duration" value={`${fmt(avgDuration)} min`} />
+          {avgRating && <StatCard label="Avg Rating" value={`${fmt(avgRating)} / 5`} sub={"★".repeat(Math.round(avgRating))} />}
+          {avgSac && <StatCard label="Avg SAC Rate" value={`${fmt(avgSac)} PSI/min`} sub="Surface equivalent" />}
+          {avgVis && <StatCard label="Avg Visibility" value={`${fmt(avgVis)} ft`} />}
+          {avgTemp && <StatCard label="Avg Water Temp" value={`${fmt(avgTemp)}°F`} />}
         </div>
 
-        {loading && <Spinner />}
-
-        {!loading && totalDives === 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+          {/* Dives per month */}
           <Card>
-            <p style={{ margin: 0, textAlign: "center", color: "#888", padding: "32px 0" }}>
-              No dives logged yet. Start logging dives to see your stats!
-            </p>
+            <h2 style={{ margin: "0 0 16px", fontSize: 16, color: "#1565c0" }}>Dives Per Month</h2>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 100 }}>
+              {months.map((m) => (
+                <div key={m.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <div
+                    style={{
+                      width: "100%",
+                      background: m.count > 0 ? "#1976d2" : "#e0e7ef",
+                      borderRadius: "3px 3px 0 0",
+                      height: `${(m.count / maxMonthCount) * 80}px`,
+                      minHeight: m.count > 0 ? 4 : 0,
+                      transition: "height 0.3s",
+                    }}
+                    title={`${m.count} dive${m.count !== 1 ? "s" : ""}`}
+                  />
+                  <span style={{ fontSize: 9, color: "#888", whiteSpace: "nowrap" }}>{m.label}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Top locations */}
+          <Card>
+            <h2 style={{ margin: "0 0 16px", fontSize: 16, color: "#1565c0" }}>Top Locations</h2>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+              {topLocations.map(([loc, count]) => (
+                <li key={loc} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ flex: 1, fontSize: 14, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{loc}</div>
+                  <div
+                    style={{
+                      height: 8,
+                      width: `${(count / topLocations[0][1]) * 80}px`,
+                      background: "#1976d2",
+                      borderRadius: 4,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ fontSize: 13, color: "#666", width: 24, textAlign: "right", flexShrink: 0 }}>{count}</div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+
+        {/* Dive type breakdown */}
+        {typeEntries.length > 0 && (
+          <Card style={{ marginBottom: 24 }}>
+            <h2 style={{ margin: "0 0 16px", fontSize: 16, color: "#1565c0" }}>Dive Types</h2>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {typeEntries.map(([type, count]) => (
+                <div key={type} style={{ background: "#e3f2fd", borderRadius: 8, padding: "8px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#1565c0" }}>{count}</div>
+                  <div style={{ fontSize: 13, color: "#444" }}>{type}</div>
+                </div>
+              ))}
+            </div>
           </Card>
         )}
 
-        {!loading && totalDives > 0 && (
-          <>
-            {/* Summary cards */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
-              <StatCard label="Total Dives" value={totalDives} />
-              <StatCard label="Total Time" value={`${Math.floor(totalTime / 60)}h ${totalTime % 60}m`} />
-              <StatCard label="Avg Duration" value={`${avgDuration} min`} />
-              <StatCard label="Avg Depth" value={`${avgDepth} ft`} />
-              <StatCard label="Deepest Dive" value={`${maxDepth} ft`} />
-              {avgRating && <StatCard label="Avg Rating" value={`${avgRating} ★`} />}
+        {/* SAC rate per dive */}
+        {sacLogs.length > 0 && (
+          <Card>
+            <h2 style={{ margin: "0 0 4px", fontSize: 16, color: "#1565c0" }}>SAC Rate by Dive</h2>
+            <p style={{ margin: "0 0 16px", fontSize: 12, color: "#888" }}>
+              Surface Air Consumption = (tank start − end) × 33 ÷ ((depth + 33) × duration). Lower = more efficient. Typical range: 15–30 PSI/min.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {logs
+                .map((l) => ({ log: l, sac: sacRate(l) }))
+                .filter((x): x is { log: DiveLog; sac: number } => x.sac !== null)
+                .sort((a, b) => a.sac - b.sac)
+                .map(({ log: l, sac }) => (
+                  <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                    <span style={{ width: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#333" }}>{l.location}</span>
+                    <span style={{ width: 80, color: "#888" }}>{l.date.split("T")[0]}</span>
+                    <div style={{ flex: 1, background: "#e0e7ef", borderRadius: 4, height: 10, overflow: "hidden" }}>
+                      <div style={{ width: `${Math.min((sac / 40) * 100, 100)}%`, height: "100%", background: sac < 20 ? "#2e7d32" : sac < 30 ? "#f9a825" : "#d32f2f", borderRadius: 4 }} />
+                    </div>
+                    <span style={{ width: 70, textAlign: "right", fontWeight: 600, color: sac < 20 ? "#2e7d32" : sac < 30 ? "#f9a825" : "#d32f2f" }}>{fmt(sac)} PSI/min</span>
+                  </div>
+                ))}
             </div>
-
-            {/* Charts */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}>
-              {monthData.length > 0 && (
-                <Card>
-                  <BarChart data={monthData} label="Dives by Month" />
-                </Card>
-              )}
-              {typeData.length > 0 && (
-                <Card>
-                  <BarChart data={typeData} label="Dives by Type" />
-                </Card>
-              )}
-              {locationData.length > 0 && (
-                <Card>
-                  <BarChart data={locationData} label="Top Locations" />
-                </Card>
-              )}
-              {ratingData.length > 0 && (
-                <Card>
-                  <BarChart data={ratingData} label="Ratings Distribution" />
-                </Card>
-              )}
-            </div>
-          </>
+          </Card>
         )}
       </div>
     </main>

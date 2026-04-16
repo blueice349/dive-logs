@@ -24,15 +24,14 @@ export type DiveLogBase = {
   rating?: number;
   lat?: number;
   lng?: number;
-  // Gear
+  buddyUserId?: number;
   wetsuit?: string;
   bcd?: string;
   fins?: string;
-  cylinderType?: CylinderType;
+  cylinderType?: string;
   cylinderSize?: number;
-  gasMix?: GasMix;
+  gasMix?: string;
   o2Percent?: number;
-  // Dive details
   certUsed?: string;
   marineLife?: string;
 };
@@ -42,6 +41,8 @@ export type DiveLog = DiveLogBase & {
   userId: number;
   firstName?: string;
   lastName?: string;
+  lat?: number;
+  lng?: number;
 };
 
 export const diveLogBaseSchema = Joi.object<DiveLogBase>({

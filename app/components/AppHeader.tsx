@@ -5,6 +5,7 @@ import { type PublicUser } from "@/app/types/user";
 
 const NAV_LINKS = [
   { label: "Dive Log", href: "/dive-log" },
+  { label: "Stats", href: "/stats" },
   { label: "Profile", href: "/user-profile" },
 ];
 

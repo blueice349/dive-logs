@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     lastName: value.lastName,
     phone: value.phone,
     isAdmin: 0,
+    isActive: 1,
   });
 
   await setSession(user.id);

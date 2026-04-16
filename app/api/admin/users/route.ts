@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     lastName: value.lastName,
     phone: value.phone,
     isAdmin: value.isAdmin,
+    isActive: 1,
   });
 
   return NextResponse.json(toPublicUser(user), { status: 201 });

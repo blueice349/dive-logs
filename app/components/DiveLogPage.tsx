@@ -7,6 +7,7 @@ import { type PublicUser } from "@/app/types/user";
 import AppHeader from "./AppHeader";
 import DiveLogModal from "./DiveLogModal";
 import ConfirmModal from "./ConfirmModal";
+import ExportPDFButton from "./ExportPDFButton";
 
 type Filter = "mine" | "all";
 
@@ -59,34 +60,15 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
   };
 
   return (
-    <main
-      style={{
-        fontFamily: "system-ui, sans-serif",
-        minHeight: "100vh",
-        background: "#f0f4f8",
-      }}
-    >
+    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
       <AppHeader user={user} />
 
       <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
         <div
           className="dive-log-toolbar"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}
         >
-          <div
-            style={{
-              display: "flex",
-              background: "#e0e7ef",
-              borderRadius: 8,
-              padding: 3,
-              gap: 2,
-            }}
-          >
+          <div style={{ display: "flex", background: "#e0e7ef", borderRadius: 8, padding: 3, gap: 2 }}>
             {(["mine", ...(user.isAdmin ? ["all"] : [])] as Filter[]).map((f) => (
               <button
                 key={f}
@@ -100,124 +82,57 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
                   fontWeight: filter === f ? 600 : 400,
                   color: filter === f ? "#1565c0" : "#555",
                   cursor: "pointer",
-                  boxShadow:
-                    filter === f ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  boxShadow: filter === f ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 }}
               >
                 {f === "mine" ? "My Dives" : "All Dives"}
               </button>
             ))}
           </div>
-          <Button onClick={() => setShowAdd(true)}>➕ Add Dive Log</Button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <ExportPDFButton user={user} logs={logs} />
+            <Button onClick={() => setShowAdd(true)}>➕ Add Dive Log</Button>
+          </div>
         </div>
 
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {logs.map((log) => (
             <li key={log.id}>
               <Card>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    flexWrap: "wrap",
-                    gap: 8,
-                  }}
-                >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <h3 style={{ margin: 0, color: "#1565c0" }}>
-                        {log.location}
-                      </h3>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <h3 style={{ margin: 0, color: "#1565c0" }}>{log.location}</h3>
                       {log.diveType && (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            background: "#e3f2fd",
-                            color: "#1565c0",
-                            borderRadius: 4,
-                            padding: "2px 8px",
-                            fontWeight: 600,
-                          }}
-                        >
+                        <span style={{ fontSize: 12, background: "#e3f2fd", color: "#1565c0", borderRadius: 4, padding: "2px 8px", fontWeight: 600 }}>
                           {log.diveType}
                         </span>
                       )}
                       {log.rating && (
                         <span style={{ fontSize: 13, color: "#f9a825" }}>
-                          {"★".repeat(log.rating)}
-                          {"☆".repeat(5 - log.rating)}
+                          {"★".repeat(log.rating)}{"☆".repeat(5 - log.rating)}
                         </span>
                       )}
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "4px 16px",
-                        margin: "8px 0 0",
-                        fontSize: 14,
-                        color: "#555",
-                      }}
-                    >
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", margin: "8px 0 0", fontSize: 14, color: "#555" }}>
                       {log.firstName && <span>🤿 {log.firstName} {log.lastName}</span>}
-                      <span>
-                        📅 {log.date
-                          .split("T")[0]
-                          .replace(/(\d{4})-(\d{2})-(\d{2})/, "$2/$3/$1")}
-                      </span>
+                      <span>📅 {log.date.split("T")[0].replace(/(\d{4})-(\d{2})-(\d{2})/, "$2/$3/$1")}</span>
                       <span>⬇️ {log.depth} ft</span>
                       <span>⏱ {log.duration} min</span>
                       {log.buddy && <span>👤 {log.buddy}</span>}
-                      {log.visibility != null && (
-                        <span>👁 {log.visibility} ft vis</span>
-                      )}
-                      {log.waterTemp != null && (
-                        <span>🌡 {log.waterTemp}°F</span>
-                      )}
-                      {log.tankStart != null && log.tankEnd != null && (
-                        <span>
-                          🪣 {log.tankStart}→{log.tankEnd} PSI
-                        </span>
-                      )}
+                      {log.visibility != null && <span>👁 {log.visibility} ft vis</span>}
+                      {log.waterTemp != null && <span>🌡 {log.waterTemp}°F</span>}
+                      {log.tankStart != null && log.tankEnd != null && <span>🪣 {log.tankStart}→{log.tankEnd} PSI</span>}
                     </div>
                     {log.notes && (
-                      <p
-                        style={{
-                          margin: "8px 0 0",
-                          fontSize: 13,
-                          color: "#666",
-                          fontStyle: "italic",
-                          whiteSpace: "pre-wrap",
-                        }}
-                      >
+                      <p style={{ margin: "8px 0 0", fontSize: 13, color: "#666", fontStyle: "italic", whiteSpace: "pre-wrap" }}>
                         {log.notes}
                       </p>
                     )}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <Button
-                      size="sm"
-                      disabled={!user.isAdmin && log.userId !== user.id}
-                      onClick={() => setEditingLog(log)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      disabled={!user.isAdmin && log.userId !== user.id}
-                      onClick={() => setDeletingLog(log)}
-                    >
-                      Delete
-                    </Button>
+                    <Button size="sm" disabled={!user.isAdmin && log.userId !== user.id} onClick={() => setEditingLog(log)}>Edit</Button>
+                    <Button size="sm" variant="danger" disabled={!user.isAdmin && log.userId !== user.id} onClick={() => setDeletingLog(log)}>Delete</Button>
                   </div>
                 </div>
               </Card>
@@ -226,25 +141,8 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
         </ul>
       </div>
 
-      {showAdd && (
-        <DiveLogModal
-          mode="add"
-          currentUser={user}
-          onSave={handleAdded}
-          onClose={() => setShowAdd(false)}
-        />
-      )}
-
-      {editingLog && (
-        <DiveLogModal
-          mode="edit"
-          log={editingLog}
-          currentUser={user}
-          onSave={handleUpdated}
-          onClose={() => setEditingLog(null)}
-        />
-      )}
-
+      {showAdd && <DiveLogModal mode="add" currentUser={user} onSave={handleAdded} onClose={() => setShowAdd(false)} />}
+      {editingLog && <DiveLogModal mode="edit" log={editingLog} currentUser={user} onSave={handleUpdated} onClose={() => setEditingLog(null)} />}
       {deletingLog && (
         <ConfirmModal
           title="Delete Dive Log"

@@ -7,6 +7,7 @@ import { type PublicUser } from "@/app/types/user";
 import AppHeader from "./AppHeader";
 import DiveLogModal from "./DiveLogModal";
 import ConfirmModal from "./ConfirmModal";
+import DivePhotoModal from "./DivePhotoModal";
 
 type Filter = "mine" | "all";
 
@@ -16,6 +17,7 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingLog, setEditingLog] = useState<DiveLog | null>(null);
   const [deletingLog, setDeletingLog] = useState<DiveLog | null>(null);
+  const [photosLog, setPhotosLog] = useState<DiveLog | null>(null);
 
   useEffect(() => {
     const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
@@ -203,6 +205,7 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
                     )}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <Button size="sm" variant="secondary" onClick={() => setPhotosLog(log)}>📷 Photos</Button>
                     <Button
                       size="sm"
                       disabled={!user.isAdmin && log.userId !== user.id}
@@ -245,6 +248,14 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
         />
       )}
 
+      {photosLog && (
+        <DivePhotoModal
+          dive={photosLog}
+          currentUserId={user.id}
+          isAdmin={user.isAdmin}
+          onClose={() => setPhotosLog(null)}
+        />
+      )}
       {deletingLog && (
         <ConfirmModal
           title="Delete Dive Log"

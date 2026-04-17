@@ -23,7 +23,7 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
     setLoading(true);
     try {
       const { default: jsPDF } = await import("jspdf");
-      await import("jspdf-autotable");
+      const { default: autoTable } = await import("jspdf-autotable");
 
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const W = 210;
@@ -86,8 +86,7 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
         if (log.buddyUserId)
           coreRows.push(["Buddy User ID", String(log.buddyUserId), "", ""]);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (doc as any).autoTable({
+        autoTable(doc, {
           startY: y,
           head: [["Dive Info", "", "", ""]],
           body: coreRows,
@@ -121,8 +120,7 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
           gearRows.push(["Cert Used", log.certUsed, "", ""]);
 
         if (gearRows.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (doc as any).autoTable({
+          autoTable(doc, {
             startY: y,
             head: [["Tank & Gear", "", "", ""]],
             body: gearRows,
@@ -143,8 +141,7 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
 
         // Marine life
         if (log.marineLife) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (doc as any).autoTable({
+          autoTable(doc, {
             startY: y,
             head: [["Marine Life Spotted"]],
             body: [[log.marineLife]],
@@ -159,8 +156,7 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
 
         // Lat/Lng
         if (log.lat != null && log.lng != null) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (doc as any).autoTable({
+          autoTable(doc, {
             startY: y,
             head: [["GPS Coordinates", ""]],
             body: [["Latitude / Longitude", `${log.lat}, ${log.lng}`]],
@@ -179,8 +175,7 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
 
         // Notes
         if (log.notes) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (doc as any).autoTable({
+          autoTable(doc, {
             startY: y,
             head: [["Notes"]],
             body: [[log.notes]],

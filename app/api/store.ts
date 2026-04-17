@@ -75,7 +75,8 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN lat REAL",
     "ALTER TABLE dive_logs ADD COLUMN lng REAL",
     "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
-    "ALTER TABLE users ADD COLUMN share_token TEXT UNIQUE",
+    "ALTER TABLE users ADD COLUMN share_token TEXT",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_share_token ON users(share_token)",
   ]) {
     try {
       await db.execute(sql);

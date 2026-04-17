@@ -471,7 +471,13 @@ export const getPublicProfile = async (token: string): Promise<PublicProfile | n
   return {
     user: { firstName: u.firstName, lastName: u.lastName },
     stats: { totalDives: Number(s.total), deepestDive: Number(s.deepest ?? 0), longestDive: Number(s.longest ?? 0), uniqueLocations: Number(s.locations) },
-    certifications: certs.rows as unknown as PublicProfile["certifications"],
-    recentDives: recentDives.rows as unknown as PublicProfile["recentDives"],
+    certifications: certs.rows.map((r) => {
+      const c = r as unknown as { certName: string; agency: string | null; certDate: string | null };
+      return { certName: c.certName, agency: c.agency ?? undefined, certDate: c.certDate ?? undefined };
+    }),
+    recentDives: recentDives.rows.map((r) => {
+      const d = r as unknown as { location: string; date: string; depth: number; duration: number; diveType: string | null };
+      return { location: d.location, date: d.date, depth: Number(d.depth), duration: Number(d.duration), diveType: d.diveType ?? undefined };
+    }),
   };
 };

@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
 import { diveLogBaseSchema } from "../data";
-import { updateDiveLog, adminUpdateDiveLog, deleteDiveLog } from "../../store";
+import { updateDiveLog, adminUpdateDiveLog, deleteDiveLog, setDiveGear, getDiveGear } from "../../store";
 import { getSession } from "@/app/lib/session";
+
+export async function GET(
+  _req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const user = await getSession();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await context.params;
+  const gearIds = await getDiveGear(Number(id));
+  return NextResponse.json({ gearIds });
+}
 
 export async function PUT(
   req: Request,
@@ -36,7 +47,10 @@ export async function PUT(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(updated);
+  const gearIds = Array.isArray(body.gearIds) ? body.gearIds.filter((id: unknown) => Number.isInteger(id)) : [];
+  await setDiveGear(numericId, gearIds);
+
+  return NextResponse.json({ ...updated, gearIds });
 }
 
 export async function DELETE(

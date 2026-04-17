@@ -24,6 +24,12 @@ type Certification = {
   agency?: string;
 };
 
+type GearItem = {
+  id: number;
+  name: string;
+  type: string;
+};
+
 type FormValues = {
   location: string;
   date: string;
@@ -260,6 +266,8 @@ export default function DiveLogModal(props: Props) {
   const [adminUsers, setAdminUsers] = useState<PublicUser[]>([]);
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [speciesList, setSpeciesList] = useState<{ id: number; name: string; category?: string }[]>([]);
+  const [gearItems, setGearItems] = useState<GearItem[]>([]);
+  const [selectedGearIds, setSelectedGearIds] = useState<number[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number>(
     mode === "edit" ? props.log.userId ?? currentUser.id : currentUser.id
   );
@@ -270,9 +278,15 @@ export default function DiveLogModal(props: Props) {
 
   useEffect(() => {
     fetch("/api/species").then((r) => r.ok ? r.json() : []).then(setSpeciesList);
+    fetch("/api/gear").then((r) => r.ok ? r.json() : { items: [] }).then((d) => setGearItems(d.items ?? []));
     if (!currentUser.isAdmin) return;
     fetch("/api/admin/users").then((r) => r.json()).then(setAdminUsers);
   }, [currentUser.isAdmin]);
+
+  useEffect(() => {
+    if (mode !== "edit") return;
+    fetch(`/api/logs/${props.log.id}`).then((r) => r.ok ? r.json() : { gearIds: [] }).then((d) => setSelectedGearIds(d.gearIds ?? []));
+  }, [mode, mode === "edit" ? props.log.id : null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const url = currentUser.isAdmin && selectedUserId !== currentUser.id
@@ -326,6 +340,7 @@ export default function DiveLogModal(props: Props) {
     const payload = {
       ...toPayload(data),
       ...(Boolean(currentUser.isAdmin) ? { userId: selectedUserId } : {}),
+      gearIds: selectedGearIds,
     };
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     onSave(await res.json());
@@ -473,6 +488,63 @@ export default function DiveLogModal(props: Props) {
                 </select>
               </div>
             </FormGrid>
+
+            {gearItems.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <Label htmlFor="gear-picker">Gear Used</Label>
+                <div
+                  id="gear-picker"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    marginTop: 6,
+                    padding: "10px 12px",
+                    border: "1px solid #ccc",
+                    borderRadius: 6,
+                    background: "white",
+                  }}
+                >
+                  {gearItems.map((item) => {
+                    const checked = selectedGearIds.includes(item.id);
+                    return (
+                      <label
+                        key={item.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "4px 10px",
+                          borderRadius: 16,
+                          border: `1px solid ${checked ? "#1565c0" : "#ddd"}`,
+                          background: checked ? "#e3f2fd" : "#f9f9f9",
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontWeight: checked ? 600 : 400,
+                          color: checked ? "#1565c0" : "#444",
+                          userSelect: "none",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) =>
+                            setSelectedGearIds((prev) =>
+                              e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id)
+                            )
+                          }
+                          style={{ display: "none" }}
+                        />
+                        {item.name}
+                        <span style={{ fontSize: 11, color: checked ? "#1976d2" : "#999" }}>
+                          {item.type}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <SectionLabel>Marine Life &amp; Notes</SectionLabel>
             <div style={{ marginBottom: 12 }}>

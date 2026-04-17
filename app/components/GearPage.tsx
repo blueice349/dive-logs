@@ -31,12 +31,13 @@ type GearItem = {
   service_interval_months?: number;
   notes?: string;
   created_at: number;
+  dives_since_service: number;
 };
 
 type ServiceStatus = "overdue" | "due-soon" | "ok" | "none";
 
-function getServiceStatus(item: GearItem, currentDiveCount: number): ServiceStatus {
-  const divesSince = currentDiveCount - item.dives_at_last_service;
+function getServiceStatus(item: GearItem): ServiceStatus {
+  const divesSince = item.dives_since_service ?? 0;
   const monthsSince = item.last_service_date
     ? (Date.now() - new Date(item.last_service_date).getTime()) / (1000 * 60 * 60 * 24 * 30)
     : Infinity;
@@ -101,7 +102,6 @@ function formatDate(dateStr?: string): string {
 
 export function GearTab({ user }: { user: PublicUser }) {
   const [items, setItems] = useState<GearItem[]>([]);
-  const [diveCount, setDiveCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<GearItem | null>(null);
@@ -117,7 +117,6 @@ export function GearTab({ user }: { user: PublicUser }) {
     if (res.ok) {
       const data = await res.json();
       setItems(data.items ?? []);
-      setDiveCount(data.diveCount ?? 0);
     }
     setLoading(false);
   }, []);
@@ -224,13 +223,13 @@ export function GearTab({ user }: { user: PublicUser }) {
   };
 
   const sortedItems = [...items].sort((a, b) => {
-    const sa = STATUS_SORT_ORDER[getServiceStatus(a, diveCount)];
-    const sb = STATUS_SORT_ORDER[getServiceStatus(b, diveCount)];
+    const sa = STATUS_SORT_ORDER[getServiceStatus(a)];
+    const sb = STATUS_SORT_ORDER[getServiceStatus(b)];
     if (sa !== sb) return sa - sb;
     return a.name.localeCompare(b.name);
   });
 
-  const overdueCount = items.filter((i) => getServiceStatus(i, diveCount) === "overdue").length;
+  const overdueCount = items.filter((i) => getServiceStatus(i) === "overdue").length;
 
   return (
     <div>
@@ -296,10 +295,10 @@ export function GearTab({ user }: { user: PublicUser }) {
         {!loading && sortedItems.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {sortedItems.map((item) => {
-              const status = getServiceStatus(item, diveCount);
+              const status = getServiceStatus(item);
               const statusBadge = STATUS_BADGE[status];
               const typeColor = TYPE_COLORS[item.type] ?? TYPE_COLORS.Other;
-              const divesSince = diveCount - item.dives_at_last_service;
+              const divesSince = item.dives_since_service ?? 0;
               const isLogging = loggingService === item.id;
 
               return (

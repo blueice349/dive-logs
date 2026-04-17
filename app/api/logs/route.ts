@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { diveLogBaseSchema } from "./data";
-import { getAllDiveLogs, getDiveLogsForUser, insertDiveLog } from "../store";
+import { getAllDiveLogs, getDiveLogsForUser, insertDiveLog, setDiveGear } from "../store";
 import { getSession } from "@/app/lib/session";
 
 export async function GET(req: Request) {
@@ -42,6 +42,9 @@ export async function POST(req: Request) {
     { ...value, date: value.date.split("T")[0] },
     targetUserId
   );
+
+  const gearIds = Array.isArray(body.gearIds) ? body.gearIds.filter((id: unknown) => Number.isInteger(id)) : [];
+  if (gearIds.length > 0) await setDiveGear(newLog.id, gearIds);
 
   return NextResponse.json(newLog, { status: 201 });
 }

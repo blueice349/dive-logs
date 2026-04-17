@@ -99,7 +99,7 @@ function formatDate(dateStr?: string): string {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-export default function GearPage({ user }: { user: PublicUser }) {
+export function GearTab({ user }: { user: PublicUser }) {
   const [items, setItems] = useState<GearItem[]>([]);
   const [diveCount, setDiveCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -233,10 +233,7 @@ export default function GearPage({ user }: { user: PublicUser }) {
   const overdueCount = items.filter((i) => getServiceStatus(i, diveCount) === "overdue").length;
 
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
-      <AppHeader user={user} />
-
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
+    <div>
         {/* Page header */}
         <div
           style={{
@@ -463,7 +460,6 @@ export default function GearPage({ user }: { user: PublicUser }) {
             })}
           </div>
         )}
-      </div>
 
       {/* Add/Edit Modal */}
       {showModal && (
@@ -641,6 +637,17 @@ export default function GearPage({ user }: { user: PublicUser }) {
           onClose={() => setDeletingItem(null)}
         />
       )}
+    </div>
+  );
+}
+
+export default function GearPage({ user }: { user: PublicUser }) {
+  return (
+    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
+      <AppHeader user={user} />
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
+        <GearTab user={user} />
+      </div>
     </main>
   );
 }

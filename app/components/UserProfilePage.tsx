@@ -11,6 +11,7 @@ import { type PublicUser } from "@/app/types/user";
 import { profileSchema, passwordSchema, type ProfileValues, type PasswordValues } from "@/app/api/users/data";
 import Joi from "joi";
 import CertsTab from "./CertsTab";
+import { GearTab } from "./GearPage";
 
 type ProfileFormValues = ProfileValues;
 type PasswordFormValues = PasswordValues & { confirmPassword: string };
@@ -173,13 +174,14 @@ function PasswordForm({ user }: { user: PublicUser }) {
   );
 }
 
-type Tab = "profile" | "certifications";
+type Tab = "profile" | "certifications" | "gear";
 
 export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [certsLoaded, setCertsLoaded] = useState(false);
+  const [gearLoaded, setGearLoaded] = useState(false);
 
   const handleDelete = async () => {
     const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
@@ -197,6 +199,7 @@ export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
     if (tab === "certifications") setCertsLoaded(true);
+    if (tab === "gear") setGearLoaded(true);
   };
 
   const tabStyle = (tab: Tab) => ({
@@ -233,6 +236,9 @@ export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
           <button style={tabStyle("certifications")} onClick={() => handleTabChange("certifications")}>
             Certifications
           </button>
+          <button style={tabStyle("gear")} onClick={() => handleTabChange("gear")}>
+            Gear
+          </button>
         </div>
 
         {activeTab === "profile" && (
@@ -259,6 +265,12 @@ export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
         {certsLoaded && (
           <div style={{ display: activeTab === "certifications" ? "block" : "none" }}>
             <CertsTab user={user} />
+          </div>
+        )}
+
+        {gearLoaded && (
+          <div style={{ display: activeTab === "gear" ? "block" : "none" }}>
+            <GearTab user={user} />
           </div>
         )}
       </div>

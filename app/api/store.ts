@@ -75,6 +75,7 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN lat REAL",
     "ALTER TABLE dive_logs ADD COLUMN lng REAL",
     "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
+    "ALTER TABLE users ADD COLUMN share_token TEXT UNIQUE",
   ]) {
     try {
       await db.execute(sql);
@@ -82,9 +83,6 @@ const dbReady = (async () => {
       // Column already exists — nothing to do
     }
   }
-
-  // share_token migration
-  try { await db.execute("ALTER TABLE users ADD COLUMN share_token TEXT UNIQUE"); } catch { /* already exists */ }
 
   // Seed default species
   const seeds: Array<{ name: string; category: string }> = [

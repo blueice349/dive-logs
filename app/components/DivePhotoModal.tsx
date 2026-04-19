@@ -33,27 +33,22 @@ export default function DivePhotoModal({
   const [pendingFileName, setPendingFileName] = useState<string>("");
   const [sizeWarning, setSizeWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mounted = useRef(true);
 
   useEffect(() => {
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
+    let active = true;
     setLoading(true);
     fetch(`/api/logs/${dive.id}/photos`)
       .then((r) => (r.ok ? r.json() : Promise.reject(r)))
       .then((data: DivePhoto[]) => {
-        if (mounted.current) setPhotos(data);
+        if (active) setPhotos(data);
       })
       .catch(() => {
         // silently fail — show empty state
       })
       .finally(() => {
-        if (mounted.current) setLoading(false);
+        if (active) setLoading(false);
       });
+    return () => { active = false; };
   }, [dive.id]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,7 +59,7 @@ export default function DivePhotoModal({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result;
-      if (typeof result === "string" && mounted.current) {
+      if (typeof result === "string") {
         setPendingFile(result);
       }
     };
@@ -84,19 +79,17 @@ export default function DivePhotoModal({
       });
       if (res.ok) {
         const photo: DivePhoto = await res.json();
-        if (mounted.current) {
-          setPhotos((prev) => [...prev, photo]);
-          setPendingFile(null);
-          setPendingFileName("");
-          setCaptionInput("");
-          setSizeWarning(false);
-        }
+        setPhotos((prev) => [...prev, photo]);
+        setPendingFile(null);
+        setPendingFileName("");
+        setCaptionInput("");
+        setSizeWarning(false);
       } else {
         const { error } = await res.json().catch(() => ({ error: null }));
         alert(error ?? "Failed to upload photo.");
       }
     } finally {
-      if (mounted.current) setUploading(false);
+      setUploading(false);
     }
   };
 
@@ -106,10 +99,8 @@ export default function DivePhotoModal({
       method: "DELETE",
     });
     if (res.ok) {
-      if (mounted.current) {
-        setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
-        if (lightbox?.id === photo.id) setLightbox(null);
-      }
+      setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+      if (lightbox?.id === photo.id) setLightbox(null);
     } else {
       alert("Failed to delete photo.");
     }

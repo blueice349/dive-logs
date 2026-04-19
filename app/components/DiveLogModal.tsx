@@ -268,13 +268,14 @@ export default function DiveLogModal(props: Props) {
   const [speciesList, setSpeciesList] = useState<{ id: number; name: string; category?: string }[]>([]);
   const [gearItems, setGearItems] = useState<GearItem[]>([]);
   const [selectedGearIds, setSelectedGearIds] = useState<number[]>([]);
+  const [initialGearIds, setInitialGearIds] = useState<number[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number>(
     mode === "edit" ? props.log.userId ?? currentUser.id : currentUser.id
   );
 
   const log = mode === "edit" ? props.log : null;
   const initialTags = log?.marineLife ? log.marineLife.split(",").map((s) => s.trim()).filter(Boolean) : [];
-  const [tagsChanged] = useState(false);
+  void initialTags;
 
   useEffect(() => {
     fetch("/api/species").then((r) => r.ok ? r.json() : []).then(setSpeciesList);
@@ -285,7 +286,11 @@ export default function DiveLogModal(props: Props) {
 
   useEffect(() => {
     if (mode !== "edit") return;
-    fetch(`/api/logs/${props.log.id}`).then((r) => r.ok ? r.json() : { gearIds: [] }).then((d) => setSelectedGearIds(d.gearIds ?? []));
+    fetch(`/api/logs/${props.log.id}`).then((r) => r.ok ? r.json() : { gearIds: [] }).then((d) => {
+      const ids = d.gearIds ?? [];
+      setSelectedGearIds(ids);
+      setInitialGearIds(ids);
+    });
   }, [mode, mode === "edit" ? props.log.id : null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -334,6 +339,10 @@ export default function DiveLogModal(props: Props) {
   const lng = watch("lng");
   const marineLife = watch("marineLife");
 
+  const gearChanged = selectedGearIds.length !== initialGearIds.length ||
+    selectedGearIds.some((id) => !initialGearIds.includes(id)) ||
+    initialGearIds.some((id) => !selectedGearIds.includes(id));
+
   const handleSubmit = form.handleSubmit(async (data) => {
     const url = mode === "edit" ? `/api/logs/${props.log.id}` : "/api/logs";
     const method = mode === "edit" ? "PUT" : "POST";
@@ -347,9 +356,6 @@ export default function DiveLogModal(props: Props) {
   });
 
   const speciesNames = speciesList.map((s) => s.name);
-
-  // suppress unused warning — initialTags used for tagsChanged logic via marineLife form field
-  void initialTags;
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}>
@@ -585,7 +591,7 @@ export default function DiveLogModal(props: Props) {
           <Button
             variant="success"
             onClick={handleSubmit}
-            disabled={!form.formState.isValid || (mode === "edit" && !form.formState.isDirty && !tagsChanged)}
+            disabled={!form.formState.isValid || (mode === "edit" && !form.formState.isDirty && !gearChanged)}
           >
             {mode === "edit" ? "Save Changes" : "Save Dive"}
           </Button>

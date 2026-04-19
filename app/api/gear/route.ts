@@ -35,6 +35,9 @@ export async function POST(req: Request) {
   const { error, value } = gearSchema.validate(body, { abortEarly: false, stripUnknown: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  if (value.purchase_date) value.purchase_date = value.purchase_date.split("T")[0];
+  if (value.last_service_date) value.last_service_date = value.last_service_date.split("T")[0];
+
   const item = await insertGearItem({ ...value, user_id: user.id });
   return NextResponse.json(item, { status: 201 });
 }

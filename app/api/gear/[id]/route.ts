@@ -24,6 +24,9 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
   const { error, value } = gearUpdateSchema.validate(body, { abortEarly: false, stripUnknown: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  if (value.purchase_date) value.purchase_date = value.purchase_date.split("T")[0];
+  if (value.last_service_date) value.last_service_date = value.last_service_date.split("T")[0];
+
   const updated = await updateGearItem(Number(id), user.id, value);
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(updated);

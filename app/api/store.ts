@@ -58,22 +58,22 @@ const dbReady = (async () => {
       )`,
       `CREATE TABLE IF NOT EXISTS gear_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
+        userId INTEGER NOT NULL,
         name TEXT NOT NULL,
         type TEXT NOT NULL,
-        serial_number TEXT,
-        purchase_date TEXT,
-        last_service_date TEXT,
-        dives_at_last_service INTEGER NOT NULL DEFAULT 0,
-        service_interval_dives INTEGER,
-        service_interval_months INTEGER,
+        serialNumber TEXT,
+        purchaseDate TEXT,
+        lastServiceDate TEXT,
+        divesAtLastService INTEGER NOT NULL DEFAULT 0,
+        serviceIntervalDives INTEGER,
+        serviceIntervalMonths INTEGER,
         notes TEXT,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )`,
       `CREATE TABLE IF NOT EXISTS dive_gear (
-        dive_log_id INTEGER NOT NULL REFERENCES dive_logs(id) ON DELETE CASCADE,
-        gear_item_id INTEGER NOT NULL REFERENCES gear_items(id) ON DELETE CASCADE,
-        PRIMARY KEY (dive_log_id, gear_item_id)
+        diveLogId INTEGER NOT NULL REFERENCES dive_logs(id) ON DELETE CASCADE,
+        gearItemId INTEGER NOT NULL REFERENCES gear_items(id) ON DELETE CASCADE,
+        PRIMARY KEY (diveLogId, gearItemId)
       )`,
     ],
     "write"
@@ -94,6 +94,16 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN lat REAL",
     "ALTER TABLE dive_logs ADD COLUMN lng REAL",
     "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
+    "ALTER TABLE gear_items RENAME COLUMN user_id TO userId",
+    "ALTER TABLE gear_items RENAME COLUMN serial_number TO serialNumber",
+    "ALTER TABLE gear_items RENAME COLUMN purchase_date TO purchaseDate",
+    "ALTER TABLE gear_items RENAME COLUMN last_service_date TO lastServiceDate",
+    "ALTER TABLE gear_items RENAME COLUMN dives_at_last_service TO divesAtLastService",
+    "ALTER TABLE gear_items RENAME COLUMN service_interval_dives TO serviceIntervalDives",
+    "ALTER TABLE gear_items RENAME COLUMN service_interval_months TO serviceIntervalMonths",
+    "ALTER TABLE gear_items RENAME COLUMN created_at TO createdAt",
+    "ALTER TABLE dive_gear RENAME COLUMN dive_log_id TO diveLogId",
+    "ALTER TABLE dive_gear RENAME COLUMN gear_item_id TO gearItemId",
   ]) {
     try {
       await db.execute(sql);
@@ -446,66 +456,79 @@ export const deleteSpecies = async (id: number): Promise<boolean> => {
 
 export type GearItem = {
   id: number;
-  user_id: number;
+  userId: number;
   name: string;
   type: string;
-  serial_number?: string;
-  purchase_date?: string;
-  last_service_date?: string;
-  dives_at_last_service: number;
-  service_interval_dives?: number;
-  service_interval_months?: number;
+  serialNumber?: string;
+  purchaseDate?: string;
+  lastServiceDate?: string;
+  divesAtLastService: number;
+  serviceIntervalDives?: number;
+  serviceIntervalMonths?: number;
   notes?: string;
-  created_at: number;
-  dives_since_service: number;
+  createdAt: number;
+  divesSinceService: number;
+};
+
+// Storable fields only — omits DB-generated and derived columns
+export type GearItemInsert = Omit<GearItem, "id" | "createdAt" | "divesSinceService">;
+export type GearItemUpdate = Partial<Omit<GearItem, "id" | "userId" | "createdAt" | "divesSinceService">>;
+
+const GEAR_ITEM_SELECT = `
+  SELECT g.*,
+    (SELECT COUNT(*) FROM dive_gear dg
+     JOIN dive_logs dl ON dl.id = dg.diveLogId
+     WHERE dg.gearItemId = g.id
+     AND (g.lastServiceDate IS NULL OR dl.date > g.lastServiceDate)
+    ) as divesSinceService
+  FROM gear_items g`;
+
+const toGearItem = (r: unknown): GearItem => {
+  const item = r as unknown as GearItem;
+  return { ...item, divesSinceService: Number(item.divesSinceService ?? 0) };
+};
+
+const fetchGearItemById = async (id: number): Promise<GearItem | null> => {
+  const result = await db.execute({ sql: `${GEAR_ITEM_SELECT} WHERE g.id = ?`, args: [id] });
+  return result.rows[0] ? toGearItem(result.rows[0]) : null;
 };
 
 export const listGearItems = async (userId: number): Promise<GearItem[]> => {
   await dbReady;
   const result = await db.execute({
-    sql: `SELECT g.*,
-      (SELECT COUNT(*) FROM dive_gear dg
-       JOIN dive_logs dl ON dl.id = dg.dive_log_id
-       WHERE dg.gear_item_id = g.id
-       AND (g.last_service_date IS NULL OR dl.date > g.last_service_date)
-      ) as dives_since_service
-    FROM gear_items g WHERE g.user_id = ? ORDER BY g.name`,
+    sql: `${GEAR_ITEM_SELECT} WHERE g.userId = ? ORDER BY g.name`,
     args: [userId],
   });
-  return result.rows.map((r) => {
-    const item = r as unknown as GearItem;
-    return { ...item, dives_since_service: Number(item.dives_since_service ?? 0) };
-  });
+  return result.rows.map(toGearItem);
 };
 
-export const insertGearItem = async (item: Omit<GearItem, "id" | "created_at">): Promise<GearItem> => {
+export const insertGearItem = async (item: GearItemInsert): Promise<GearItem> => {
   await dbReady;
   const result = await db.execute({
-    sql: `INSERT INTO gear_items (user_id, name, type, serial_number, purchase_date, last_service_date, dives_at_last_service, service_interval_dives, service_interval_months, notes)
+    sql: `INSERT INTO gear_items (userId, name, type, serialNumber, purchaseDate, lastServiceDate, divesAtLastService, serviceIntervalDives, serviceIntervalMonths, notes)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [item.user_id, item.name, item.type, item.serial_number ?? null, item.purchase_date ?? null, item.last_service_date ?? null, item.dives_at_last_service ?? 0, item.service_interval_dives ?? null, item.service_interval_months ?? null, item.notes ?? null],
+    args: [item.userId, item.name, item.type, item.serialNumber ?? null, item.purchaseDate ?? null, item.lastServiceDate ?? null, item.divesAtLastService ?? 0, item.serviceIntervalDives ?? null, item.serviceIntervalMonths ?? null, item.notes ?? null],
   });
-  const inserted = await db.execute({ sql: "SELECT * FROM gear_items WHERE id = ?", args: [Number(result.lastInsertRowid)] });
-  return inserted.rows[0] as unknown as GearItem;
+  return (await fetchGearItemById(Number(result.lastInsertRowid)))!;
 };
 
-export const updateGearItem = async (id: number, userId: number, data: Partial<Omit<GearItem, "id" | "user_id" | "created_at">>): Promise<GearItem | null> => {
+export const updateGearItem = async (id: number, userId: number, data: GearItemUpdate): Promise<GearItem | null> => {
   await dbReady;
   const entries = Object.entries(data).filter(([, v]) => v !== undefined);
   if (entries.length === 0) {
-    const r = await db.execute({ sql: "SELECT * FROM gear_items WHERE id = ? AND user_id = ?", args: [id, userId] });
-    return r.rows[0] ? r.rows[0] as unknown as GearItem : null;
+    const existing = await db.execute({ sql: `${GEAR_ITEM_SELECT} WHERE g.id = ? AND g.userId = ?`, args: [id, userId] });
+    return existing.rows[0] ? toGearItem(existing.rows[0]) : null;
   }
   const fields = entries.map(([k]) => `${k} = ?`).join(", ");
   const values = entries.map(([, v]) => v as string | number | null);
-  await db.execute({ sql: `UPDATE gear_items SET ${fields} WHERE id = ? AND user_id = ?`, args: [...values, id, userId] });
-  const r = await db.execute({ sql: "SELECT * FROM gear_items WHERE id = ?", args: [id] });
-  return r.rows[0] ? r.rows[0] as unknown as GearItem : null;
+  const result = await db.execute({ sql: `UPDATE gear_items SET ${fields} WHERE id = ? AND userId = ?`, args: [...values, id, userId] });
+  if (result.rowsAffected === 0) return null;
+  return fetchGearItemById(id);
 };
 
 export const deleteGearItem = async (id: number, userId: number): Promise<boolean> => {
   await dbReady;
-  const res = await db.execute({ sql: "DELETE FROM gear_items WHERE id = ? AND user_id = ?", args: [id, userId] });
+  const res = await db.execute({ sql: "DELETE FROM gear_items WHERE id = ? AND userId = ?", args: [id, userId] });
   return res.rowsAffected > 0;
 };
 
@@ -517,15 +540,42 @@ export const getUserDiveCount = async (userId: number): Promise<number> => {
 
 export const getDiveGear = async (diveLogId: number): Promise<number[]> => {
   await dbReady;
-  const result = await db.execute({ sql: "SELECT gear_item_id FROM dive_gear WHERE dive_log_id = ?", args: [diveLogId] });
-  return result.rows.map((r) => Number((r as unknown as { gear_item_id: number }).gear_item_id));
+  const result = await db.execute({ sql: "SELECT gearItemId FROM dive_gear WHERE diveLogId = ?", args: [diveLogId] });
+  return result.rows.map((r) => Number((r as unknown as { gearItemId: number }).gearItemId));
+};
+
+export const getOwnedGearIds = async (userId: number, ids: number[]): Promise<number[]> => {
+  await dbReady;
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => "?").join(", ");
+  const result = await db.execute({
+    sql: `SELECT id FROM gear_items WHERE userId = ? AND id IN (${placeholders})`,
+    args: [userId, ...ids],
+  });
+  return result.rows.map((r) => Number((r as unknown as { id: number }).id));
 };
 
 export const setDiveGear = async (diveLogId: number, gearItemIds: number[]): Promise<void> => {
   await dbReady;
-  const statements = [
-    { sql: "DELETE FROM dive_gear WHERE dive_log_id = ?", args: [diveLogId] as number[] },
-    ...gearItemIds.map((id) => ({ sql: "INSERT INTO dive_gear (dive_log_id, gear_item_id) VALUES (?, ?)", args: [diveLogId, id] as number[] })),
-  ];
-  await db.batch(statements, "write");
+  const uniqueIds = [...new Set(gearItemIds)];
+  if (uniqueIds.length === 0) {
+    await db.execute({ sql: "DELETE FROM dive_gear WHERE diveLogId = ?", args: [diveLogId] });
+    return;
+  }
+  // Only keep IDs that belong to the same user as the dive log
+  const placeholders = uniqueIds.map(() => "?").join(", ");
+  const owned = await db.execute({
+    sql: `SELECT g.id FROM gear_items g
+          JOIN dive_logs dl ON dl.userId = g.userId
+          WHERE dl.id = ? AND g.id IN (${placeholders})`,
+    args: [diveLogId, ...uniqueIds],
+  });
+  const validIds = owned.rows.map((r) => Number((r as unknown as { id: number }).id));
+  await db.batch(
+    [
+      { sql: "DELETE FROM dive_gear WHERE diveLogId = ?", args: [diveLogId] },
+      ...validIds.map((id) => ({ sql: "INSERT INTO dive_gear (diveLogId, gearItemId) VALUES (?, ?)", args: [diveLogId, id] })),
+    ],
+    "write"
+  );
 };

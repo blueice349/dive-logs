@@ -279,7 +279,6 @@ export default function DiveLogModal(props: Props) {
 
   useEffect(() => {
     fetch("/api/species").then((r) => r.ok ? r.json() : []).then(setSpeciesList);
-    fetch("/api/gear").then((r) => r.ok ? r.json() : { items: [] }).then((d) => setGearItems(d.items ?? []));
     if (!currentUser.isAdmin) return;
     fetch("/api/admin/users").then((r) => r.json()).then(setAdminUsers);
   }, [currentUser.isAdmin]);
@@ -292,6 +291,13 @@ export default function DiveLogModal(props: Props) {
       setInitialGearIds(ids);
     });
   }, [mode, mode === "edit" ? props.log.id : null]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const url = currentUser.isAdmin && selectedUserId !== currentUser.id
+      ? `/api/gear?userId=${selectedUserId}`
+      : "/api/gear";
+    fetch(url).then((r) => r.ok ? r.json() : { items: [] }).then((d) => setGearItems(d.items ?? []));
+  }, [currentUser.isAdmin, currentUser.id, selectedUserId]);
 
   useEffect(() => {
     const url = currentUser.isAdmin && selectedUserId !== currentUser.id

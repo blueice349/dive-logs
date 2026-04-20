@@ -6,12 +6,12 @@ import Joi from "joi";
 const gearUpdateSchema = Joi.object({
   name: Joi.string().trim().optional().label("Name"),
   type: Joi.string().trim().optional().label("Type"),
-  serial_number: Joi.string().trim().optional().allow("", null).label("Serial Number"),
-  purchase_date: Joi.string().isoDate().optional().allow("", null).label("Purchase Date"),
-  last_service_date: Joi.string().isoDate().optional().allow("", null).label("Last Service Date"),
-  dives_at_last_service: Joi.number().integer().min(0).optional().label("Dives at Last Service"),
-  service_interval_dives: Joi.number().integer().min(1).optional().allow(null).label("Service Interval (dives)"),
-  service_interval_months: Joi.number().integer().min(1).optional().allow(null).label("Service Interval (months)"),
+  serialNumber: Joi.string().trim().optional().allow("", null).label("Serial Number"),
+  purchaseDate: Joi.string().isoDate().optional().allow("", null).label("Purchase Date"),
+  lastServiceDate: Joi.string().isoDate().optional().allow("", null).label("Last Service Date"),
+  divesAtLastService: Joi.number().integer().min(0).optional().label("Dives at Last Service"),
+  serviceIntervalDives: Joi.number().integer().min(1).optional().allow(null).label("Service Interval (dives)"),
+  serviceIntervalMonths: Joi.number().integer().min(1).optional().allow(null).label("Service Interval (months)"),
   notes: Joi.string().trim().optional().allow("", null).label("Notes"),
 });
 
@@ -24,8 +24,8 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
   const { error, value } = gearUpdateSchema.validate(body, { abortEarly: false, stripUnknown: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  if (value.purchase_date) value.purchase_date = value.purchase_date.split("T")[0];
-  if (value.last_service_date) value.last_service_date = value.last_service_date.split("T")[0];
+  if (value.purchaseDate) value.purchaseDate = value.purchaseDate.split("T")[0];
+  if (value.lastServiceDate) value.lastServiceDate = value.lastServiceDate.split("T")[0];
 
   const updated = await updateGearItem(Number(id), user.id, value);
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -57,8 +57,8 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   const currentDiveCount = await getUserDiveCount(user.id);
 
   const updated = await updateGearItem(Number(id), user.id, {
-    last_service_date: today,
-    dives_at_last_service: currentDiveCount,
+    lastServiceDate: today,
+    divesAtLastService: currentDiveCount,
   });
 
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { diveLogBaseSchema } from "../data";
-import { updateDiveLog, adminUpdateDiveLog, deleteDiveLog, setDiveGear, getDiveGear } from "../../store";
+import { updateDiveLog, adminUpdateDiveLog, deleteDiveLog, setDiveGear, getDiveGear, getOwnedGearIds } from "../../store";
 import { getSession } from "@/app/lib/session";
 
 export async function GET(
@@ -36,18 +36,25 @@ export async function PUT(
   }
 
   const logData = { ...value, date: value.date.split("T")[0] };
+  const logOwnerId = user.isAdmin && Number.isInteger(body.userId) && body.userId > 0 ? body.userId : user.id;
   const updated = user.isAdmin
-    ? await adminUpdateDiveLog(
-        numericId,
-        logData,
-        Number.isInteger(body.userId) && body.userId > 0 ? body.userId : user.id
-      )
+    ? await adminUpdateDiveLog(numericId, logData, logOwnerId)
     : await updateDiveLog(numericId, user.id, logData);
   if (!updated) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const gearIds = Array.isArray(body.gearIds) ? body.gearIds.filter((id: unknown) => Number.isInteger(id)) : [];
+  const rawGearIds: unknown[] = Array.isArray(body.gearIds) ? body.gearIds : [];
+  if (rawGearIds.some((id) => !Number.isInteger(id) || (id as number) <= 0)) {
+    return NextResponse.json({ error: "gearIds must be positive integers" }, { status: 400 });
+  }
+  const gearIds = [...new Set(rawGearIds as number[])];
+  if (gearIds.length > 0) {
+    const owned = await getOwnedGearIds(logOwnerId, gearIds);
+    if (owned.length !== gearIds.length) {
+      return NextResponse.json({ error: "One or more gear items do not belong to this user" }, { status: 400 });
+    }
+  }
   await setDiveGear(numericId, gearIds);
 
   return NextResponse.json({ ...updated, gearIds });

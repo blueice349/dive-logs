@@ -20,37 +20,37 @@ type GearType = (typeof GEAR_TYPES)[number];
 
 type GearItem = {
   id: number;
-  user_id: number;
+  userId: number;
   name: string;
   type: string;
-  serial_number?: string;
-  purchase_date?: string;
-  last_service_date?: string;
-  dives_at_last_service: number;
-  service_interval_dives?: number;
-  service_interval_months?: number;
+  serialNumber?: string;
+  purchaseDate?: string;
+  lastServiceDate?: string;
+  divesAtLastService: number;
+  serviceIntervalDives?: number;
+  serviceIntervalMonths?: number;
   notes?: string;
-  created_at: number;
-  dives_since_service: number;
+  createdAt: number;
+  divesSinceService: number;
 };
 
 type ServiceStatus = "overdue" | "due-soon" | "ok" | "none";
 
 function getServiceStatus(item: GearItem): ServiceStatus {
-  const divesSince = item.dives_since_service ?? 0;
-  const monthsSince = item.last_service_date
-    ? (Date.now() - new Date(item.last_service_date).getTime()) / (1000 * 60 * 60 * 24 * 30)
+  const divesSince = item.divesSinceService ?? 0;
+  const monthsSince = item.lastServiceDate
+    ? (Date.now() - new Date(item.lastServiceDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
     : Infinity;
 
-  if (!item.service_interval_dives && !item.service_interval_months) return "none";
+  if (!item.serviceIntervalDives && !item.serviceIntervalMonths) return "none";
 
-  const diveOverdue = item.service_interval_dives && divesSince >= item.service_interval_dives;
-  const monthOverdue = item.service_interval_months && monthsSince >= item.service_interval_months;
+  const diveOverdue = item.serviceIntervalDives && divesSince >= item.serviceIntervalDives;
+  const monthOverdue = item.serviceIntervalMonths && monthsSince >= item.serviceIntervalMonths;
   if (diveOverdue || monthOverdue) return "overdue";
 
-  const diveDueSoon = item.service_interval_dives && divesSince >= item.service_interval_dives - 10;
+  const diveDueSoon = item.serviceIntervalDives && divesSince >= item.serviceIntervalDives - 10;
   const monthDueSoon =
-    item.service_interval_months && monthsSince >= item.service_interval_months - 1;
+    item.serviceIntervalMonths && monthsSince >= item.serviceIntervalMonths - 1;
   if (diveDueSoon || monthDueSoon) return "due-soon";
 
   return "ok";
@@ -83,12 +83,12 @@ const STATUS_SORT_ORDER: Record<ServiceStatus, number> = {
 const EMPTY_FORM = {
   name: "",
   type: "Regulator" as GearType,
-  serial_number: "",
-  purchase_date: "",
-  last_service_date: "",
-  dives_at_last_service: 0,
-  service_interval_dives: "",
-  service_interval_months: "",
+  serialNumber: "",
+  purchaseDate: "",
+  lastServiceDate: "",
+  divesAtLastService: 0,
+  serviceIntervalDives: "",
+  serviceIntervalMonths: "",
   notes: "",
 };
 
@@ -137,12 +137,12 @@ export function GearTab({ user }: { user: PublicUser }) {
     setForm({
       name: item.name,
       type: (GEAR_TYPES.includes(item.type as GearType) ? item.type : "Other") as GearType,
-      serial_number: item.serial_number ?? "",
-      purchase_date: item.purchase_date ?? "",
-      last_service_date: item.last_service_date ?? "",
-      dives_at_last_service: item.dives_at_last_service,
-      service_interval_dives: item.service_interval_dives?.toString() ?? "",
-      service_interval_months: item.service_interval_months?.toString() ?? "",
+      serialNumber: item.serialNumber ?? "",
+      purchaseDate: item.purchaseDate ?? "",
+      lastServiceDate: item.lastServiceDate ?? "",
+      divesAtLastService: item.divesAtLastService,
+      serviceIntervalDives: item.serviceIntervalDives?.toString() ?? "",
+      serviceIntervalMonths: item.serviceIntervalMonths?.toString() ?? "",
       notes: item.notes ?? "",
     });
     setFormError("");
@@ -157,15 +157,15 @@ export function GearTab({ user }: { user: PublicUser }) {
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
       type: form.type,
-      serial_number: form.serial_number.trim() || null,
-      purchase_date: form.purchase_date || null,
-      last_service_date: form.last_service_date || null,
-      dives_at_last_service: Number(form.dives_at_last_service) || 0,
-      service_interval_dives: form.service_interval_dives
-        ? Number(form.service_interval_dives)
+      serialNumber: form.serialNumber.trim() || null,
+      purchaseDate: form.purchaseDate || null,
+      lastServiceDate: form.lastServiceDate || null,
+      divesAtLastService: Number(form.divesAtLastService) || 0,
+      serviceIntervalDives: form.serviceIntervalDives
+        ? Number(form.serviceIntervalDives)
         : null,
-      service_interval_months: form.service_interval_months
-        ? Number(form.service_interval_months)
+      serviceIntervalMonths: form.serviceIntervalMonths
+        ? Number(form.serviceIntervalMonths)
         : null,
       notes: form.notes.trim() || null,
     };
@@ -298,7 +298,7 @@ export function GearTab({ user }: { user: PublicUser }) {
               const status = getServiceStatus(item);
               const statusBadge = STATUS_BADGE[status];
               const typeColor = TYPE_COLORS[item.type] ?? TYPE_COLORS.Other;
-              const divesSince = item.dives_since_service ?? 0;
+              const divesSince = item.divesSinceService ?? 0;
               const isLogging = loggingService === item.id;
 
               return (
@@ -367,11 +367,11 @@ export function GearTab({ user }: { user: PublicUser }) {
                       <div
                         style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, color: "#555" }}
                       >
-                        {item.serial_number && (
-                          <span>S/N: {item.serial_number}</span>
+                        {item.serialNumber && (
+                          <span>S/N: {item.serialNumber}</span>
                         )}
-                        {item.purchase_date && (
-                          <span>Purchased: {formatDate(item.purchase_date)}</span>
+                        {item.purchaseDate && (
+                          <span>Purchased: {formatDate(item.purchaseDate)}</span>
                         )}
                       </div>
 
@@ -388,9 +388,9 @@ export function GearTab({ user }: { user: PublicUser }) {
                       >
                         <span>
                           Last serviced:{" "}
-                          {item.last_service_date ? formatDate(item.last_service_date) : "Never"}
+                          {item.lastServiceDate ? formatDate(item.lastServiceDate) : "Never"}
                         </span>
-                        {(item.service_interval_dives || item.service_interval_months) && (
+                        {(item.serviceIntervalDives || item.serviceIntervalMonths) && (
                           <span style={{ color: status === "overdue" ? "#c62828" : status === "due-soon" ? "#e65100" : "#2e7d32", fontWeight: 600 }}>
                             Dives since last service: {divesSince}
                           </span>
@@ -526,8 +526,8 @@ export function GearTab({ user }: { user: PublicUser }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <label style={labelStyle}>Serial Number</label>
                 <input
-                  value={form.serial_number}
-                  onChange={(e) => setForm((f) => ({ ...f, serial_number: e.target.value }))}
+                  value={form.serialNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, serialNumber: e.target.value }))}
                   style={inputStyle}
                   placeholder="Optional"
                 />
@@ -538,8 +538,8 @@ export function GearTab({ user }: { user: PublicUser }) {
                 <label style={labelStyle}>Purchase Date</label>
                 <input
                   type="date"
-                  value={form.purchase_date}
-                  onChange={(e) => setForm((f) => ({ ...f, purchase_date: e.target.value }))}
+                  value={form.purchaseDate}
+                  onChange={(e) => setForm((f) => ({ ...f, purchaseDate: e.target.value }))}
                   style={inputStyle}
                 />
               </div>
@@ -549,8 +549,8 @@ export function GearTab({ user }: { user: PublicUser }) {
                 <label style={labelStyle}>Last Service Date</label>
                 <input
                   type="date"
-                  value={form.last_service_date}
-                  onChange={(e) => setForm((f) => ({ ...f, last_service_date: e.target.value }))}
+                  value={form.lastServiceDate}
+                  onChange={(e) => setForm((f) => ({ ...f, lastServiceDate: e.target.value }))}
                   style={inputStyle}
                 />
               </div>
@@ -561,9 +561,9 @@ export function GearTab({ user }: { user: PublicUser }) {
                 <input
                   type="number"
                   min={1}
-                  value={form.service_interval_dives}
+                  value={form.serviceIntervalDives}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, service_interval_dives: e.target.value }))
+                    setForm((f) => ({ ...f, serviceIntervalDives: e.target.value }))
                   }
                   style={inputStyle}
                   placeholder="e.g. 100"
@@ -576,9 +576,9 @@ export function GearTab({ user }: { user: PublicUser }) {
                 <input
                   type="number"
                   min={1}
-                  value={form.service_interval_months}
+                  value={form.serviceIntervalMonths}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, service_interval_months: e.target.value }))
+                    setForm((f) => ({ ...f, serviceIntervalMonths: e.target.value }))
                   }
                   style={inputStyle}
                   placeholder="e.g. 12"

@@ -56,6 +56,14 @@ const dbReady = (async () => {
         certNumber TEXT,
         notes TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS dive_photos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dive_log_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        photo_data TEXT NOT NULL,
+        caption TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      )`,
     ],
     "write"
   );
@@ -420,5 +428,52 @@ export const insertSpecies = async (name: string, category?: string): Promise<Sp
 export const deleteSpecies = async (id: number): Promise<boolean> => {
   await dbReady;
   const res = await db.execute({ sql: "DELETE FROM species WHERE id = ?", args: [id] });
+  return res.rowsAffected > 0;
+};
+
+// ── Dive photos ───────────────────────────────────────────────────────────────
+
+export type DivePhoto = {
+  id: number;
+  dive_log_id: number;
+  user_id: number;
+  photo_data: string;
+  caption?: string;
+  created_at: number;
+};
+
+export const listDivePhotos = async (diveLogId: number): Promise<DivePhoto[]> => {
+  await dbReady;
+  const result = await db.execute({
+    sql: "SELECT * FROM dive_photos WHERE dive_log_id = ? ORDER BY created_at ASC",
+    args: [diveLogId],
+  });
+  return result.rows as unknown as DivePhoto[];
+};
+
+export const insertDivePhoto = async (
+  diveLogId: number,
+  userId: number,
+  photoData: string,
+  caption?: string
+): Promise<DivePhoto> => {
+  await dbReady;
+  const result = await db.execute({
+    sql: "INSERT INTO dive_photos (dive_log_id, user_id, photo_data, caption) VALUES (?, ?, ?, ?)",
+    args: [diveLogId, userId, photoData, caption ?? null],
+  });
+  const inserted = await db.execute({
+    sql: "SELECT * FROM dive_photos WHERE id = ?",
+    args: [Number(result.lastInsertRowid)],
+  });
+  return inserted.rows[0] as unknown as DivePhoto;
+};
+
+export const deleteDivePhoto = async (id: number, userId: number): Promise<boolean> => {
+  await dbReady;
+  const res = await db.execute({
+    sql: "DELETE FROM dive_photos WHERE id = ? AND user_id = ?",
+    args: [id, userId],
+  });
   return res.rowsAffected > 0;
 };

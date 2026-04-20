@@ -83,6 +83,7 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN lat REAL",
     "ALTER TABLE dive_logs ADD COLUMN lng REAL",
     "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN buddyUserId INTEGER REFERENCES users(id)",
   ]) {
     try {
       await db.execute(sql);
@@ -150,7 +151,11 @@ export const listPublicUsers = async (): Promise<{ id: number; firstName: string
   const result = await db.execute(
     "SELECT id, firstName, lastName FROM users ORDER BY firstName, lastName"
   );
-  return result.rows as unknown as { id: number; firstName: string; lastName: string }[];
+  return result.rows.map((r) => ({
+    id: Number((r as Record<string, unknown>).id),
+    firstName: String((r as Record<string, unknown>).firstName),
+    lastName: String((r as Record<string, unknown>).lastName),
+  }));
 };
 
 export const listUsers = async (): Promise<Omit<User, "password">[]> => {

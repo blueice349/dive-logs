@@ -35,7 +35,6 @@ type FormValues = {
   depth: string;
   duration: string;
   buddy: string;
-  buddyUserId: string;
   diveType: DiveType | "";
   visibility: string;
   waterTemp: string;
@@ -64,7 +63,6 @@ const toPayload = (data: FormValues): DiveLogBase => ({
   duration: Number(data.duration),
   date: data.date,
   buddy: data.buddy || undefined,
-  buddyUserId: data.buddyUserId ? Number(data.buddyUserId) : undefined,
   diveType: (data.diveType as DiveType) || undefined,
   visibility: toNum(data.visibility),
   waterTemp: toNum(data.waterTemp),
@@ -368,12 +366,6 @@ export default function DiveLogModal(props: Props) {
   );
 
   const log = mode === "edit" ? props.log : null;
-  const initialTags = log?.marineLife
-    ? log.marineLife
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : [];
   const initialBuddyUserId =
     log?.buddyUserId != null ? String(log.buddyUserId) : "";
   const [buddyUserIdState, setBuddyUserIdState] = useState(initialBuddyUserId);
@@ -409,7 +401,6 @@ export default function DiveLogModal(props: Props) {
       duration: log?.duration != null ? String(log.duration) : "",
       date: log?.date ?? new Date().toISOString().split("T")[0],
       buddy: log?.buddy ?? "",
-      buddyUserId: log?.buddyUserId != null ? String(log.buddyUserId) : "",
       diveType: log?.diveType ?? "",
       visibility: log?.visibility != null ? String(log.visibility) : "",
       waterTemp: log?.waterTemp != null ? String(log.waterTemp) : "",
@@ -448,7 +439,7 @@ export default function DiveLogModal(props: Props) {
 
   const buddyChanged = buddyUserIdState !== initialBuddyUserId;
 
-  const handleSubmit = form.handleSubmit(async (data) => {
+  const handleSubmit = form.handleSubmit(async (data: FormValues) => {
     const url = mode === "edit" ? `/api/logs/${props.log.id}` : "/api/logs";
     const method = mode === "edit" ? "PUT" : "POST";
     const payload = {
@@ -466,8 +457,6 @@ export default function DiveLogModal(props: Props) {
 
   const speciesNames = speciesList.map((s) => s.name);
 
-  // suppress unused warning — initialTags used for tagsChanged logic via marineLife form field
-  void initialTags;
 
   return (
     <div
@@ -610,7 +599,7 @@ export default function DiveLogModal(props: Props) {
                 >
                   <option value="">— None —</option>
                   {publicUsers
-                    .filter((u) => u.id !== currentUser.id)
+                    .filter((u) => u.id !== (currentUser.isAdmin ? selectedUserId : currentUser.id))
                     .map((u) => (
                       <option key={u.id} value={String(u.id)}>
                         {u.firstName} {u.lastName}

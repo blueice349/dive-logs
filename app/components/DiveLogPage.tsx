@@ -13,8 +13,8 @@ type Filter = "mine" | "all" | "buddy";
 
 type BuddyRequest = {
   id: number;
-  dive_log_id: number;
-  from_user_id: number;
+  diveLogId: number;
+  fromUserId: number;
   location?: string;
   date?: string;
   depth?: number;
@@ -90,6 +90,7 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
     const url = filter === "all" ? "/api/logs?filter=all" : filter === "buddy" ? "/api/logs?filter=buddy" : "/api/logs";
     fetch(url).then((r) => {
       if (r.ok) r.json().then(setLogs);
+      else setLogs([]);
     });
   }, [filter]);
 

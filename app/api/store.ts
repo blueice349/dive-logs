@@ -10,6 +10,7 @@ const db = createClient({
 
 // Run once at module load — idempotent DDL + migrations
 const dbReady = (async () => {
+  try { await db.execute("PRAGMA foreign_keys = ON"); } catch { /* not supported in all libsql modes */ }
   await db.batch(
     [
       `CREATE TABLE IF NOT EXISTS users (
@@ -58,11 +59,12 @@ const dbReady = (async () => {
       )`,
       `CREATE TABLE IF NOT EXISTS buddy_requests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        dive_log_id INTEGER NOT NULL,
-        from_user_id INTEGER NOT NULL,
-        to_user_id INTEGER NOT NULL,
+        diveLogId INTEGER NOT NULL REFERENCES dive_logs(id) ON DELETE CASCADE,
+        fromUserId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        toUserId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         status TEXT NOT NULL DEFAULT 'pending',
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        UNIQUE (diveLogId, toUserId)
       )`,
     ],
     "write"
@@ -84,11 +86,15 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN lng REAL",
     "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
     "ALTER TABLE dive_logs ADD COLUMN buddyUserId INTEGER REFERENCES users(id)",
+    "ALTER TABLE buddy_requests RENAME COLUMN dive_log_id TO diveLogId",
+    "ALTER TABLE buddy_requests RENAME COLUMN from_user_id TO fromUserId",
+    "ALTER TABLE buddy_requests RENAME COLUMN to_user_id TO toUserId",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_buddy_requests_unique ON buddy_requests (diveLogId, toUserId)",
   ]) {
     try {
       await db.execute(sql);
     } catch {
-      // Column already exists — nothing to do
+      // Column/index already exists — nothing to do
     }
   }
 
@@ -440,9 +446,9 @@ export const deleteSpecies = async (id: number): Promise<boolean> => {
 
 export type BuddyRequest = {
   id: number;
-  dive_log_id: number;
-  from_user_id: number;
-  to_user_id: number;
+  diveLogId: number;
+  fromUserId: number;
+  toUserId: number;
   status: string;
   created_at: number;
   location?: string;
@@ -459,13 +465,8 @@ export const createBuddyRequest = async (
   toUserId: number
 ): Promise<void> => {
   await dbReady;
-  const existing = await db.execute({
-    sql: "SELECT id FROM buddy_requests WHERE dive_log_id = ? AND to_user_id = ?",
-    args: [diveLogId, toUserId],
-  });
-  if (existing.rows.length > 0) return;
   await db.execute({
-    sql: "INSERT INTO buddy_requests (dive_log_id, from_user_id, to_user_id) VALUES (?, ?, ?)",
+    sql: "INSERT OR IGNORE INTO buddy_requests (diveLogId, fromUserId, toUserId) VALUES (?, ?, ?)",
     args: [diveLogId, fromUserId, toUserId],
   });
 };
@@ -476,13 +477,29 @@ export const getPendingBuddyRequests = async (userId: number): Promise<BuddyRequ
     sql: `SELECT br.*, dl.location, dl.date, dl.depth, dl.duration,
             u.firstName AS fromFirstName, u.lastName AS fromLastName
           FROM buddy_requests br
-          JOIN dive_logs dl ON dl.id = br.dive_log_id
-          JOIN users u ON u.id = br.from_user_id
-          WHERE br.to_user_id = ? AND br.status = 'pending'
+          JOIN dive_logs dl ON dl.id = br.diveLogId
+          JOIN users u ON u.id = br.fromUserId
+          WHERE br.toUserId = ? AND br.status = 'pending'
           ORDER BY br.created_at DESC`,
     args: [userId],
   });
-  return result.rows as unknown as BuddyRequest[];
+  return result.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      id: Number(row.id),
+      diveLogId: Number(row.diveLogId),
+      fromUserId: Number(row.fromUserId),
+      toUserId: Number(row.toUserId),
+      status: String(row.status),
+      created_at: Number(row.created_at),
+      location: row.location != null ? String(row.location) : undefined,
+      date: row.date != null ? String(row.date) : undefined,
+      depth: row.depth != null ? Number(row.depth) : undefined,
+      duration: row.duration != null ? Number(row.duration) : undefined,
+      fromFirstName: row.fromFirstName != null ? String(row.fromFirstName) : undefined,
+      fromLastName: row.fromLastName != null ? String(row.fromLastName) : undefined,
+    } satisfies BuddyRequest;
+  });
 };
 
 export const updateBuddyRequest = async (
@@ -492,7 +509,7 @@ export const updateBuddyRequest = async (
 ): Promise<boolean> => {
   await dbReady;
   const res = await db.execute({
-    sql: "UPDATE buddy_requests SET status = ? WHERE id = ? AND to_user_id = ?",
+    sql: "UPDATE buddy_requests SET status = ? WHERE id = ? AND toUserId = ?",
     args: [status, id, toUserId],
   });
   return res.rowsAffected > 0;
@@ -501,7 +518,7 @@ export const updateBuddyRequest = async (
 export const countPendingBuddyRequests = async (userId: number): Promise<number> => {
   await dbReady;
   const result = await db.execute({
-    sql: "SELECT COUNT(*) as count FROM buddy_requests WHERE to_user_id = ? AND status = 'pending'",
+    sql: "SELECT COUNT(*) as count FROM buddy_requests br JOIN dive_logs dl ON dl.id = br.diveLogId WHERE br.toUserId = ? AND br.status = 'pending'",
     args: [userId],
   });
   return Number((result.rows[0] as unknown as { count: number }).count);
@@ -512,9 +529,9 @@ export const getConfirmedBuddyDives = async (userId: number) => {
   const result = await db.execute({
     sql: `SELECT dl.*, u.firstName, u.lastName
           FROM dive_logs dl
-          JOIN buddy_requests br ON br.dive_log_id = dl.id
+          JOIN buddy_requests br ON br.diveLogId = dl.id
           JOIN users u ON u.id = dl.userId
-          WHERE br.to_user_id = ? AND br.status = 'confirmed'
+          WHERE br.toUserId = ? AND br.status = 'confirmed'
           ORDER BY dl.date DESC`,
     args: [userId],
   });

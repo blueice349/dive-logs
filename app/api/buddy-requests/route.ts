@@ -19,9 +19,10 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json();
-  const { id, action } = body as { id: number; action: string };
+  const { id: rawId, action } = body as { id: unknown; action: string };
+  const id = Number(rawId);
 
-  if (!id || !Number.isInteger(id)) {
+  if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
   if (action !== "confirm" && action !== "decline") {

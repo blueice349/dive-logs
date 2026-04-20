@@ -10,7 +10,9 @@ import "leaflet/dist/leaflet.css";
 
 const DiveMap = dynamic(() => import("./DiveMap"), { ssr: false });
 
-type Filter = "mine" | "all";
+type Filter = "mine" | "buddy" | "all";
+
+const FILTER_LABEL: Record<Filter, string> = { mine: "My Dives", buddy: "Buddy Dives", all: "All Dives" };
 
 function StatCard({
   label,
@@ -54,14 +56,14 @@ export default function MapPage({ user }: { user: PublicUser }) {
   useEffect(() => {
     setLoading(true);
     setSelectedId(null);
-    const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
+    const url = filter === "all" ? "/api/logs?filter=all" : filter === "buddy" ? "/api/logs?filter=buddy" : "/api/logs";
     fetch(url).then((r) => {
       if (r.ok)
         r.json().then((data) => {
           setLogs(data);
           setLoading(false);
         });
-      else setLoading(false);
+      else { setLogs([]); setLoading(false); }
     });
   }, [filter]);
 
@@ -152,47 +154,45 @@ export default function MapPage({ user }: { user: PublicUser }) {
               boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
             }}
           >
-            🗺 {filter === "all" ? "All Dives" : "My Dives"}
+            🗺 {FILTER_LABEL[filter]}
           </div>
         </div>
 
         {/* Filter toggle — top right */}
-        {Boolean(user.isAdmin) && (
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              zIndex: 1000,
-              display: "flex",
-              background: "rgba(255,255,255,0.9)",
-              backdropFilter: "blur(6px)",
-              borderRadius: 8,
-              padding: 3,
-              gap: 2,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            }}
-          >
-            {(["mine", "all"] as Filter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                style={{
-                  background: filter === f ? "#1565c0" : "transparent",
-                  border: "none",
-                  borderRadius: 6,
-                  padding: "5px 14px",
-                  fontSize: 13,
-                  fontWeight: filter === f ? 700 : 400,
-                  color: filter === f ? "white" : "#555",
-                  cursor: "pointer",
-                }}
-              >
-                {f === "mine" ? "My Dives" : "All Dives"}
-              </button>
-            ))}
-          </div>
-        )}
+        <div
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            zIndex: 1000,
+            display: "flex",
+            background: "rgba(255,255,255,0.9)",
+            backdropFilter: "blur(6px)",
+            borderRadius: 8,
+            padding: 3,
+            gap: 2,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          }}
+        >
+          {(["mine", "buddy", ...(user.isAdmin ? ["all"] : [])] as Filter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              style={{
+                background: filter === f ? "#1565c0" : "transparent",
+                border: "none",
+                borderRadius: 6,
+                padding: "5px 14px",
+                fontSize: 13,
+                fontWeight: filter === f ? 700 : 400,
+                color: filter === f ? "white" : "#555",
+                cursor: "pointer",
+              }}
+            >
+              {FILTER_LABEL[f]}
+            </button>
+          ))}
+        </div>
 
         {/* Bottom legend */}
         {!loading && (

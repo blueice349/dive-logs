@@ -26,7 +26,9 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
-type Filter = "mine" | "all";
+type Filter = "mine" | "buddy" | "all";
+
+const FILTER_LABEL: Record<Filter, string> = { mine: "My Dives", buddy: "Buddy Dives", all: "All Dives" };
 
 export default function StatsPage({ user }: { user: PublicUser }) {
   const [logs, setLogs] = useState<DiveLog[]>([]);
@@ -35,37 +37,38 @@ export default function StatsPage({ user }: { user: PublicUser }) {
 
   useEffect(() => {
     setLoading(true);
-    const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
+    const url = filter === "all" ? "/api/logs?filter=all" : filter === "buddy" ? "/api/logs?filter=buddy" : "/api/logs";
     fetch(url).then((r) => {
       if (r.ok) r.json().then((data) => { setLogs(data); setLoading(false); });
-      else setLoading(false);
+      else { setLogs([]); setLoading(false); }
     });
   }, [filter]);
 
-  const toggle = user.isAdmin ? (
+  const tabs: Filter[] = ["mine", "buddy", ...(user.isAdmin ? ["all" as Filter] : [])];
+  const toggle = (
     <div style={{ display: "flex", background: "#e0e7ef", borderRadius: 8, padding: 3, gap: 2, width: "fit-content", marginBottom: 20 }}>
-      {(["mine", "all"] as Filter[]).map((f) => (
+      {tabs.map((f) => (
         <button
           key={f}
           onClick={() => setFilter(f)}
           style={{ background: filter === f ? "white" : "transparent", border: "none", borderRadius: 6, padding: "5px 16px", fontSize: 14, fontWeight: filter === f ? 600 : 400, color: filter === f ? "#1565c0" : "#555", cursor: "pointer", boxShadow: filter === f ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}
         >
-          {f === "mine" ? "My Dives" : "All Dives"}
+          {FILTER_LABEL[f]}
         </button>
       ))}
     </div>
-  ) : null;
+  );
 
   if (loading || logs.length === 0) {
     return (
       <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
         <AppHeader user={user} />
         <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
-          <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>My Dive Stats</h1>
+          <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>{FILTER_LABEL[filter]} Stats</h1>
           {toggle}
           {loading ? <Spinner /> : (
             <div style={{ padding: "40px 0", textAlign: "center", color: "#888" }}>
-              No dive logs yet. Start logging dives to see your stats!
+              {filter === "buddy" ? "No buddy dives yet. Dives where you're confirmed as a buddy will appear here." : "No dive logs yet. Start logging dives to see your stats!"}
             </div>
           )}
         </div>
@@ -121,9 +124,7 @@ export default function StatsPage({ user }: { user: PublicUser }) {
     <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
       <AppHeader user={user} />
       <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
-        <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>
-          {filter === "all" ? "All Divers Stats" : "My Dive Stats"}
-        </h1>
+        <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>{FILTER_LABEL[filter]} Stats</h1>
         {toggle}
 
         {/* Top stat cards */}

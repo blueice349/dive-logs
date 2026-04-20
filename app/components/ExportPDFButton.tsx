@@ -17,9 +17,34 @@ function stars(n?: number): string {
 }
 
 export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs: DiveLog[] }) {
+  const [showModal, setShowModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
 
+  const sorted = [...logs].sort((a, b) => b.date.localeCompare(a.date));
+  const allSelected = logs.length > 0 && selectedIds.size === logs.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const openModal = () => {
+    setSelectedIds(new Set());
+    setShowModal(true);
+  };
+
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(logs.map((l) => l.id)));
+  };
+
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleExport = async () => {
+    const toExport = sorted.filter((l) => selectedIds.has(l.id));
     setLoading(true);
     try {
       const { default: jsPDF } = await import("jspdf");
@@ -44,16 +69,14 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
       doc.text(`${user.firstName} ${user.lastName}`, W / 2, 52, { align: "center" });
 
       doc.setFontSize(13);
-      doc.text(`${logs.length} dive${logs.length !== 1 ? "s" : ""} logged`, W / 2, 65, { align: "center" });
+      doc.text(`${toExport.length} dive${toExport.length !== 1 ? "s" : ""} logged`, W / 2, 65, { align: "center" });
 
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(11);
       doc.text(`Exported ${new Date().toLocaleDateString()}`, W / 2, 100, { align: "center" });
 
       // ── One page per dive ────────────────────────────────────────────────────
-      const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
-
-      sorted.forEach((log, i) => {
+      toExport.forEach((log, i) => {
         doc.addPage();
 
         // Header bar
@@ -74,17 +97,9 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
         const coreRows: [string, string, string, string][] = [];
         coreRows.push(["Depth", `${log.depth} ft`, "Duration", `${log.duration} min`]);
         if (log.buddy || log.visibility != null)
-          coreRows.push([
-            "Buddy", log.buddy ?? "—",
-            "Visibility", log.visibility != null ? `${log.visibility} ft` : "—",
-          ]);
+          coreRows.push(["Buddy", log.buddy ?? "—", "Visibility", log.visibility != null ? `${log.visibility} ft` : "—"]);
         if (log.waterTemp != null || log.rating)
-          coreRows.push([
-            "Water Temp", log.waterTemp != null ? `${log.waterTemp}°F` : "—",
-            "Rating", stars(log.rating) || "—",
-          ]);
-        if (log.buddyUserId)
-          coreRows.push(["Buddy User ID", String(log.buddyUserId), "", ""]);
+          coreRows.push(["Water Temp", log.waterTemp != null ? `${log.waterTemp}°F` : "—", "Rating", stars(log.rating) || "—"]);
 
         autoTable(doc, {
           startY: y,
@@ -193,14 +208,150 @@ export default function ExportPDFButton({ user, logs }: { user: PublicUser; logs
       });
 
       doc.save(`dive-logbook-${user.firstName.toLowerCase()}-${user.lastName.toLowerCase()}.pdf`);
+      setShowModal(false);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Button onClick={handleExport} disabled={loading || logs.length === 0}>
-      {loading ? "Generating…" : "📄 Export PDF"}
-    </Button>
+    <>
+      <Button onClick={openModal} disabled={logs.length === 0}>
+        📄 Export PDF
+      </Button>
+
+      {showModal && (
+        <div
+          onClick={() => !loading && setShowModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 500,
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "white",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 520,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: "85vh",
+            }}
+          >
+            {/* Modal header */}
+            <div style={{ padding: "20px 24px 0" }}>
+              <h2 style={{ margin: "0 0 4px", fontSize: 18, color: "#1565c0" }}>
+                Select Dives to Export
+              </h2>
+              <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>
+                {selectedIds.size === 0
+                  ? "No dives selected"
+                  : `${selectedIds.size} of ${logs.length} selected`}
+              </p>
+
+              {/* Select all row */}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  background: "#f0f4f8",
+                  cursor: "pointer",
+                  marginBottom: 8,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: "#333",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected;
+                  }}
+                  onChange={toggleAll}
+                  style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#1565c0" }}
+                />
+                Select All ({logs.length} dive{logs.length !== 1 ? "s" : ""})
+              </label>
+            </div>
+
+            {/* Scrollable dive list */}
+            <div style={{ overflowY: "auto", flex: 1, padding: "0 24px 8px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {sorted.map((log) => {
+                  const checked = selectedIds.has(log.id);
+                  return (
+                    <label
+                      key={log.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: `1px solid ${checked ? "#1565c0" : "#e0e0e0"}`,
+                        background: checked ? "#e3f2fd" : "white",
+                        cursor: "pointer",
+                        transition: "background 0.1s, border-color 0.1s",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleOne(log.id)}
+                        style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#1565c0", flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: "#222", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {log.location}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#666", marginTop: 1 }}>
+                          {formatDate(log.date)} · {log.depth} ft · {log.duration} min
+                          {log.diveType ? ` · ${log.diveType}` : ""}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderTop: "1px solid #eee",
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+                flexShrink: 0,
+              }}
+            >
+              <Button variant="secondary" onClick={() => setShowModal(false)} disabled={loading}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleExport}
+                disabled={selectedIds.size === 0 || loading}
+              >
+                {loading ? "Generating…" : `📄 Export PDF (${selectedIds.size})`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

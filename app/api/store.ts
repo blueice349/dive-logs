@@ -506,3 +506,17 @@ export const countPendingBuddyRequests = async (userId: number): Promise<number>
   });
   return Number((result.rows[0] as unknown as { count: number }).count);
 };
+
+export const getConfirmedBuddyDives = async (userId: number) => {
+  await dbReady;
+  const result = await db.execute({
+    sql: `SELECT dl.*, u.firstName, u.lastName
+          FROM dive_logs dl
+          JOIN buddy_requests br ON br.dive_log_id = dl.id
+          JOIN users u ON u.id = dl.userId
+          WHERE br.to_user_id = ? AND br.status = 'confirmed'
+          ORDER BY dl.date DESC`,
+    args: [userId],
+  });
+  return result.rows;
+};

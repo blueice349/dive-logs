@@ -6,9 +6,10 @@ import { type DiveLog } from "@/app/api/logs/data";
 import { type PublicUser } from "@/app/types/user";
 import AppHeader from "./AppHeader";
 import DiveLogModal from "./DiveLogModal";
+import DiveLogViewModal from "./DiveLogViewModal";
 import ConfirmModal from "./ConfirmModal";
 
-type Filter = "mine" | "all";
+type Filter = "mine" | "all" | "buddy";
 
 type BuddyRequest = {
   id: number;
@@ -22,13 +23,53 @@ type BuddyRequest = {
   fromLastName?: string;
 };
 
+type MenuItem = { label: string; action: () => void; color: string; disabled?: boolean };
+
+function ActionsMenu({ items, open, onToggle }: { items: MenuItem[]; open: boolean; onToggle: () => void }) {
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        style={{ background: "#e3eaf4", border: "1px solid #c5d0de", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#1565c0", display: "flex", alignItems: "center", gap: 4 }}
+      >
+        Actions <span style={{ fontSize: 10 }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", background: "white", border: "1px solid #dde3ec", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", zIndex: 50, minWidth: 140, overflow: "hidden" }}>
+          {items.map(({ label, action, color, disabled }) => (
+            <button
+              key={label}
+              disabled={disabled}
+              onClick={(e) => { e.stopPropagation(); action(); onToggle(); }}
+              style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 16px", background: "none", border: "none", fontSize: 14, color: disabled ? "#aaa" : color, cursor: disabled ? "not-allowed" : "pointer" }}
+              onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.background = "#f0f4f8"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DiveLogPage({ user }: { user: PublicUser }) {
   const [logs, setLogs] = useState<DiveLog[]>([]);
   const [filter, setFilter] = useState<Filter>("mine");
   const [showAdd, setShowAdd] = useState(false);
   const [editingLog, setEditingLog] = useState<DiveLog | null>(null);
   const [deletingLog, setDeletingLog] = useState<DiveLog | null>(null);
+  const [viewingLog, setViewingLog] = useState<DiveLog | null>(null);
   const [buddyRequests, setBuddyRequests] = useState<BuddyRequest[]>([]);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (openMenuId === null) return;
+    const close = () => setOpenMenuId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [openMenuId]);
 
   useEffect(() => {
     fetch("/api/buddy-requests")
@@ -46,14 +87,14 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
   };
 
   useEffect(() => {
-    const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
+    const url = filter === "all" ? "/api/logs?filter=all" : filter === "buddy" ? "/api/logs?filter=buddy" : "/api/logs";
     fetch(url).then((r) => {
       if (r.ok) r.json().then(setLogs);
     });
   }, [filter]);
 
   const handleAdded = (log: DiveLog) => {
-    if (filter === "all" || log.userId === user.id) {
+    if (filter === "all" || filter === "buddy" || log.userId === user.id) {
       setLogs((prev) => [...prev, log]);
     }
     setShowAdd(false);
@@ -115,7 +156,7 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
               gap: 2,
             }}
           >
-            {(["mine", ...(user.isAdmin ? ["all"] : [])] as Filter[]).map((f) => (
+            {(["mine", "buddy", ...(user.isAdmin ? ["all"] : [])] as Filter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -132,7 +173,7 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
                     filter === f ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 }}
               >
-                {f === "mine" ? "My Dives" : "All Dives"}
+                {f === "mine" ? "My Dives" : f === "buddy" ? "Buddy Dives" : "All Dives"}
               </button>
             ))}
           </div>
@@ -159,6 +200,20 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {logs.length === 0 && (
+          <div style={{ textAlign: "center", padding: "48px 24px", background: "white", borderRadius: 12, border: "1px dashed #c5d0de", color: "#888" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🤿</div>
+            <p style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 600, color: "#555" }}>
+              {filter === "buddy" ? "No buddy dives yet" : filter === "all" ? "No dives logged yet" : "No dives logged yet"}
+            </p>
+            <p style={{ margin: 0, fontSize: 14 }}>
+              {filter === "buddy"
+                ? "Dives where another diver confirms you as their buddy will appear here."
+                : "Start logging your dives to see them here."}
+            </p>
           </div>
         )}
 
@@ -253,22 +308,20 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
                       </p>
                     )}
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <Button
-                      size="sm"
-                      disabled={!user.isAdmin && log.userId !== user.id}
-                      onClick={() => setEditingLog(log)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      disabled={!user.isAdmin && log.userId !== user.id}
-                      onClick={() => setDeletingLog(log)}
-                    >
-                      Delete
-                    </Button>
+                  <div style={{ flexShrink: 0 }}>
+                    <ActionsMenu
+                      open={openMenuId === log.id}
+                      onToggle={() => setOpenMenuId((prev) => (prev === log.id ? null : log.id))}
+                      items={
+                        filter === "buddy"
+                          ? [{ label: "View", action: () => setViewingLog(log), color: "#1565c0" }]
+                          : [
+                              { label: "View", action: () => setViewingLog(log), color: "#1565c0" },
+                              { label: "Edit", action: () => setEditingLog(log), color: "#1565c0", disabled: !user.isAdmin && log.userId !== user.id },
+                              { label: "Delete", action: () => setDeletingLog(log), color: "#c62828", disabled: !user.isAdmin && log.userId !== user.id },
+                            ]
+                      }
+                    />
                   </div>
                 </div>
               </Card>
@@ -294,6 +347,10 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
           onSave={handleUpdated}
           onClose={() => setEditingLog(null)}
         />
+      )}
+
+      {viewingLog && (
+        <DiveLogViewModal log={viewingLog} onClose={() => setViewingLog(null)} />
       )}
 
       {deletingLog && (

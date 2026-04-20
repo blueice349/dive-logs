@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { diveLogBaseSchema } from "./data";
-import { getAllDiveLogs, getDiveLogsForUser, insertDiveLog, createBuddyRequest, findUserById } from "../store";
+import { getAllDiveLogs, getDiveLogsForUser, insertDiveLog, createBuddyRequest, findUserById, getConfirmedBuddyDives } from "../store";
 import { getSession } from "@/app/lib/session";
 
 export async function GET(req: Request) {
@@ -9,11 +9,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { searchParams } = new URL(req.url);
-  const wantsAll = searchParams.get("filter") === "all";
-  if (wantsAll && !user.isAdmin) {
+  const filterParam = searchParams.get("filter");
+  if (filterParam === "all" && !user.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const logs = wantsAll ? await getAllDiveLogs() : await getDiveLogsForUser(user.id);
+  const logs =
+    filterParam === "all" ? await getAllDiveLogs() :
+    filterParam === "buddy" ? await getConfirmedBuddyDives(user.id) :
+    await getDiveLogsForUser(user.id);
   return NextResponse.json(logs);
 }
 

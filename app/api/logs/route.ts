@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { diveLogBaseSchema } from "./data";
-import { getAllDiveLogs, getDiveLogsForUser, insertDiveLog } from "../store";
+import { getAllDiveLogs, getDiveLogsForUser, insertDiveLog, setDiveGear, getOwnedGearIds } from "../store";
 import { getSession } from "@/app/lib/session";
 
 export async function GET(req: Request) {
@@ -42,6 +42,19 @@ export async function POST(req: Request) {
     { ...value, date: value.date.split("T")[0] },
     targetUserId
   );
+
+  const rawGearIds: unknown[] = Array.isArray(body.gearIds) ? body.gearIds : [];
+  if (rawGearIds.some((id) => !Number.isInteger(id) || (id as number) <= 0)) {
+    return NextResponse.json({ error: "gearIds must be positive integers" }, { status: 400 });
+  }
+  const gearIds = [...new Set(rawGearIds as number[])];
+  if (gearIds.length > 0) {
+    const owned = await getOwnedGearIds(targetUserId, gearIds);
+    if (owned.length !== gearIds.length) {
+      return NextResponse.json({ error: "One or more gear items do not belong to this user" }, { status: 400 });
+    }
+    await setDiveGear(newLog.id, gearIds);
+  }
 
   return NextResponse.json(newLog, { status: 201 });
 }

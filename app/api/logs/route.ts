@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { diveLogBaseSchema } from "./data";
-import { getAllDiveLogs, getDiveLogsForUser, insertDiveLog } from "../store";
+import { getAllDiveLogs, getDiveLogsForUser, insertDiveLog, createBuddyRequest, findUserById } from "../store";
 import { getSession } from "@/app/lib/session";
 
 export async function GET(req: Request) {
@@ -42,6 +42,13 @@ export async function POST(req: Request) {
     { ...value, date: value.date.split("T")[0] },
     targetUserId
   );
+
+  if (value.buddyUserId && value.buddyUserId !== targetUserId) {
+    const buddyExists = await findUserById(value.buddyUserId);
+    if (buddyExists) {
+      await createBuddyRequest(newLog.id, targetUserId, value.buddyUserId);
+    }
+  }
 
   return NextResponse.json(newLog, { status: 201 });
 }

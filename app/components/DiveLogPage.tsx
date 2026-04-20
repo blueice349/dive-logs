@@ -10,12 +10,40 @@ import ConfirmModal from "./ConfirmModal";
 
 type Filter = "mine" | "all";
 
+type BuddyRequest = {
+  id: number;
+  dive_log_id: number;
+  from_user_id: number;
+  location?: string;
+  date?: string;
+  depth?: number;
+  duration?: number;
+  fromFirstName?: string;
+  fromLastName?: string;
+};
+
 export default function DiveLogPage({ user }: { user: PublicUser }) {
   const [logs, setLogs] = useState<DiveLog[]>([]);
   const [filter, setFilter] = useState<Filter>("mine");
   const [showAdd, setShowAdd] = useState(false);
   const [editingLog, setEditingLog] = useState<DiveLog | null>(null);
   const [deletingLog, setDeletingLog] = useState<DiveLog | null>(null);
+  const [buddyRequests, setBuddyRequests] = useState<BuddyRequest[]>([]);
+
+  useEffect(() => {
+    fetch("/api/buddy-requests")
+      .then((r) => r.ok ? r.json() : [])
+      .then(setBuddyRequests);
+  }, []);
+
+  const handleBuddyAction = async (id: number, action: "confirm" | "decline") => {
+    const res = await fetch("/api/buddy-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    if (res.ok) setBuddyRequests((prev) => prev.filter((r) => r.id !== id));
+  };
 
   useEffect(() => {
     const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
@@ -110,6 +138,29 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
           </div>
           <Button onClick={() => setShowAdd(true)}>➕ Add Dive Log</Button>
         </div>
+
+        {buddyRequests.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 15, color: "#1565c0", fontWeight: 700 }}>
+              🤿 Buddy Requests ({buddyRequests.length})
+            </h3>
+            {buddyRequests.map((req) => (
+              <div key={req.id} style={{ background: "white", border: "1px solid #bbdefb", borderRadius: 8, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div style={{ fontSize: 14, color: "#333" }}>
+                  <strong>{req.fromFirstName} {req.fromLastName}</strong> logged a dive
+                  {req.location && <> at <strong>{req.location}</strong></>}
+                  {req.date && <> on {req.date.split("T")[0].replace(/(\d{4})-(\d{2})-(\d{2})/, "$2/$3/$1")}</>}
+                  {req.depth != null && req.duration != null && <> ({req.depth}ft, {req.duration}min)</>}
+                  {" "}and tagged you as their buddy.
+                </div>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <Button size="sm" variant="success" onClick={() => handleBuddyAction(req.id, "confirm")}>Confirm</Button>
+                  <Button size="sm" variant="secondary" onClick={() => handleBuddyAction(req.id, "decline")}>Decline</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {logs.map((log) => (

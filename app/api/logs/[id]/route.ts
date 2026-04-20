@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { diveLogBaseSchema } from "../data";
-import { updateDiveLog, adminUpdateDiveLog, deleteDiveLog } from "../../store";
+import { updateDiveLog, adminUpdateDiveLog, deleteDiveLog, createBuddyRequest, findUserById } from "../../store";
 import { getSession } from "@/app/lib/session";
 
 export async function PUT(
@@ -34,6 +34,14 @@ export async function PUT(
     : await updateDiveLog(numericId, user.id, logData);
   if (!updated) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const targetUserId = user.isAdmin && Number.isInteger(body.userId) && body.userId > 0 ? body.userId : user.id;
+  if (value.buddyUserId && value.buddyUserId !== targetUserId) {
+    const buddyExists = await findUserById(value.buddyUserId);
+    if (buddyExists) {
+      await createBuddyRequest(numericId, targetUserId, value.buddyUserId);
+    }
   }
 
   return NextResponse.json(updated);

@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState, KeyboardEvent } from "react";
-import { useForm, FormProvider, useFormContext, Controller } from "react-hook-form";
+import {
+  useForm,
+  FormProvider,
+  useFormContext,
+  Controller,
+} from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Button, FormGrid, Label } from "@/components/ui/form";
 import LocationPicker from "./LocationPicker";
@@ -75,33 +80,91 @@ const toPayload = (data: FormValues): DiveLogBase => ({
   ...(data.bcd ? { bcd: data.bcd } : {}),
   ...(data.fins ? { fins: data.fins } : {}),
   ...(data.cylinderType ? { cylinderType: data.cylinderType } : {}),
-  ...(data.cylinderSize !== "" ? { cylinderSize: Number(data.cylinderSize) } : {}),
+  ...(data.cylinderSize !== ""
+    ? { cylinderSize: Number(data.cylinderSize) }
+    : {}),
   ...(data.gasMix ? { gasMix: data.gasMix } : {}),
   ...(data.o2Percent !== "" ? { o2Percent: Number(data.o2Percent) } : {}),
 });
 
 type Props =
-  | { mode: "add"; currentUser: PublicUser; onSave: (log: DiveLog) => void; onClose: () => void }
-  | { mode: "edit"; log: DiveLog; currentUser: PublicUser; onSave: (log: DiveLog) => void; onClose: () => void };
+  | {
+      mode: "add";
+      currentUser: PublicUser;
+      onSave: (log: DiveLog) => void;
+      onClose: () => void;
+    }
+  | {
+      mode: "edit";
+      log: DiveLog;
+      currentUser: PublicUser;
+      onSave: (log: DiveLog) => void;
+      onClose: () => void;
+    };
 
-function SelectField({ name, label, children }: { name: keyof FormValues; label: string; children: React.ReactNode }) {
+function SelectField({
+  name,
+  label,
+  children,
+}: {
+  name: keyof FormValues;
+  label: string;
+  children: React.ReactNode;
+}) {
   const { register } = useFormContext<FormValues>();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <Label htmlFor={name}>{label}</Label>
-      <select id={name} {...register(name)} style={{ padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 16, color: "#222", width: "100%", background: "white", boxSizing: "border-box" }}>
+      <select
+        id={name}
+        {...register(name)}
+        style={{
+          padding: "10px 12px",
+          borderRadius: 6,
+          border: "1px solid #ccc",
+          fontSize: 16,
+          color: "#222",
+          width: "100%",
+          background: "white",
+          boxSizing: "border-box",
+        }}
+      >
         {children}
       </select>
     </div>
   );
 }
 
-function TextareaField({ name, label, placeholder }: { name: keyof FormValues; label: string; placeholder?: string }) {
+function TextareaField({
+  name,
+  label,
+  placeholder,
+}: {
+  name: keyof FormValues;
+  label: string;
+  placeholder?: string;
+}) {
   const { register } = useFormContext<FormValues>();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <Label htmlFor={name}>{label}</Label>
-      <textarea id={name} placeholder={placeholder} rows={3} {...register(name)} style={{ padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 16, color: "#222", width: "100%", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
+      <textarea
+        id={name}
+        placeholder={placeholder}
+        rows={3}
+        {...register(name)}
+        style={{
+          padding: "10px 12px",
+          borderRadius: 6,
+          border: "1px solid #ccc",
+          fontSize: 16,
+          color: "#222",
+          width: "100%",
+          resize: "vertical",
+          fontFamily: "inherit",
+          boxSizing: "border-box",
+        }}
+      />
     </div>
   );
 }
@@ -118,11 +181,19 @@ function MarineLifeTags({
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const tags = value ? value.split(",").map((t) => t.trim()).filter(Boolean) : [];
+  const tags = value
+    ? value
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : [];
 
   const addTag = (tag: string) => {
     const trimmed = tag.trim();
-    if (!trimmed || tags.includes(trimmed)) { setInput(""); return; }
+    if (!trimmed || tags.includes(trimmed)) {
+      setInput("");
+      return;
+    }
     onChange([...tags, trimmed].join(", "));
     setInput("");
     setShowSuggestions(false);
@@ -141,9 +212,11 @@ function MarineLifeTags({
     }
   };
 
-  const filtered = speciesSuggestions.filter(
-    (s) => s.toLowerCase().includes(input.toLowerCase()) && !tags.includes(s)
-  ).slice(0, 6);
+  const filtered = speciesSuggestions
+    .filter(
+      (s) => s.toLowerCase().includes(input.toLowerCase()) && !tags.includes(s)
+    )
+    .slice(0, 6);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -181,8 +254,19 @@ function MarineLifeTags({
             {tag}
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "#1565c0", lineHeight: 1, fontSize: 14 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                removeTag(tag);
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                color: "#1565c0",
+                lineHeight: 1,
+                fontSize: 14,
+              }}
             >
               ×
             </button>
@@ -191,11 +275,16 @@ function MarineLifeTags({
         <input
           id="marineLife-input"
           value={input}
-          onChange={(e) => { setInput(e.target.value); setShowSuggestions(true); }}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setShowSuggestions(true);
+          }}
           onKeyDown={handleKeyDown}
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          placeholder={tags.length === 0 ? "Type species and press Enter..." : ""}
+          placeholder={
+            tags.length === 0 ? "Type species and press Enter..." : ""
+          }
           style={{
             border: "none",
             outline: "none",
@@ -225,7 +314,10 @@ function MarineLifeTags({
               <button
                 key={s}
                 type="button"
-                onMouseDown={(e) => { e.preventDefault(); addTag(s); }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  addTag(s);
+                }}
                 style={{
                   display: "block",
                   width: "100%",
@@ -237,8 +329,14 @@ function MarineLifeTags({
                   cursor: "pointer",
                   color: "#222",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f0f4f8"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "#f0f4f8";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "none";
+                }}
               >
                 {s}
               </button>
@@ -259,27 +357,47 @@ export default function DiveLogModal(props: Props) {
 
   const [adminUsers, setAdminUsers] = useState<PublicUser[]>([]);
   const [certifications, setCertifications] = useState<Certification[]>([]);
-  const [speciesList, setSpeciesList] = useState<{ id: number; name: string; category?: string }[]>([]);
+  const [speciesList, setSpeciesList] = useState<
+    { id: number; name: string; category?: string }[]
+  >([]);
+  const [publicUsers, setPublicUsers] = useState<
+    { id: number; firstName: string; lastName: string }[]
+  >([]);
   const [selectedUserId, setSelectedUserId] = useState<number>(
     mode === "edit" ? props.log.userId ?? currentUser.id : currentUser.id
   );
 
   const log = mode === "edit" ? props.log : null;
-  const initialTags = log?.marineLife ? log.marineLife.split(",").map((s) => s.trim()).filter(Boolean) : [];
-  const [tagsChanged] = useState(false);
+  const initialTags = log?.marineLife
+    ? log.marineLife
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const initialBuddyUserId =
+    log?.buddyUserId != null ? String(log.buddyUserId) : "";
+  const [buddyUserIdState, setBuddyUserIdState] = useState(initialBuddyUserId);
 
   useEffect(() => {
-    fetch("/api/species").then((r) => r.ok ? r.json() : []).then(setSpeciesList);
+    fetch("/api/species")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setSpeciesList);
+    fetch("/api/users/public")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setPublicUsers);
     if (!currentUser.isAdmin) return;
-    fetch("/api/admin/users").then((r) => r.json()).then(setAdminUsers);
+    fetch("/api/admin/users")
+      .then((r) => r.json())
+      .then(setAdminUsers);
   }, [currentUser.isAdmin]);
 
   useEffect(() => {
-    const url = currentUser.isAdmin && selectedUserId !== currentUser.id
-      ? `/api/certifications?userId=${selectedUserId}`
-      : "/api/certifications";
+    const url =
+      currentUser.isAdmin && selectedUserId !== currentUser.id
+        ? `/api/certifications?userId=${selectedUserId}`
+        : "/api/certifications";
     fetch(url)
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => (r.ok ? r.json() : []))
       .then(setCertifications)
       .catch(() => setCertifications([]));
   }, [currentUser.isAdmin, currentUser.id, selectedUserId]);
@@ -299,19 +417,27 @@ export default function DiveLogModal(props: Props) {
       tankEnd: log?.tankEnd != null ? String(log.tankEnd) : "",
       notes: log?.notes ?? "",
       rating: log?.rating != null ? String(log.rating) : "",
-      lat: getLogField(log, "lat") != null ? String(getLogField(log, "lat")) : "",
-      lng: getLogField(log, "lng") != null ? String(getLogField(log, "lng")) : "",
+      lat:
+        getLogField(log, "lat") != null ? String(getLogField(log, "lat")) : "",
+      lng:
+        getLogField(log, "lng") != null ? String(getLogField(log, "lng")) : "",
       certUsed: getLogField(log, "certUsed") ?? "",
       marineLife: getLogField(log, "marineLife") ?? "",
       wetsuit: getLogField(log, "wetsuit") ?? "",
       bcd: getLogField(log, "bcd") ?? "",
       fins: getLogField(log, "fins") ?? "",
       cylinderType: getLogField(log, "cylinderType") ?? "",
-      cylinderSize: getLogField(log, "cylinderSize") != null ? String(getLogField(log, "cylinderSize")) : "",
+      cylinderSize:
+        getLogField(log, "cylinderSize") != null
+          ? String(getLogField(log, "cylinderSize"))
+          : "",
       gasMix: getLogField(log, "gasMix") ?? "",
-      o2Percent: getLogField(log, "o2Percent") != null ? String(getLogField(log, "o2Percent")) : "",
+      o2Percent:
+        getLogField(log, "o2Percent") != null
+          ? String(getLogField(log, "o2Percent"))
+          : "",
     },
-    mode: "onChange",
+    mode: "all",
     resolver: joiResolver(diveLogBaseSchema),
   });
 
@@ -320,14 +446,21 @@ export default function DiveLogModal(props: Props) {
   const lng = watch("lng");
   const marineLife = watch("marineLife");
 
+  const buddyChanged = buddyUserIdState !== initialBuddyUserId;
+
   const handleSubmit = form.handleSubmit(async (data) => {
     const url = mode === "edit" ? `/api/logs/${props.log.id}` : "/api/logs";
     const method = mode === "edit" ? "PUT" : "POST";
     const payload = {
       ...toPayload(data),
+      buddyUserId: buddyUserIdState ? Number(buddyUserIdState) : undefined,
       ...(Boolean(currentUser.isAdmin) ? { userId: selectedUserId } : {}),
     };
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
     onSave(await res.json());
   });
 
@@ -337,8 +470,32 @@ export default function DiveLogModal(props: Props) {
   void initialTags;
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "white", borderRadius: 12, width: "100%", maxWidth: 560, boxShadow: "0 8px 32px rgba(0,0,0,0.2)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 200,
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "white",
+          borderRadius: 12,
+          width: "100%",
+          maxWidth: 560,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <div style={{ padding: "24px 28px 0" }}>
           <h2 style={{ margin: "0 0 16px", fontSize: 20, color: "#1565c0" }}>
             {mode === "edit" ? "Edit Dive Log" : "New Dive Entry"}
@@ -350,10 +507,25 @@ export default function DiveLogModal(props: Props) {
           {Boolean(currentUser.isAdmin) && adminUsers.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <Label htmlFor="user-select">Log for User</Label>
-              <select id="user-select" value={selectedUserId} onChange={(e) => setSelectedUserId(Number(e.target.value))}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 16, color: "#222", marginTop: 4, boxSizing: "border-box" }}>
+              <select
+                id="user-select"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(Number(e.target.value))}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  fontSize: 16,
+                  color: "#222",
+                  marginTop: 4,
+                  boxSizing: "border-box",
+                }}
+              >
                 {adminUsers.map((u) => (
-                  <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</option>
+                  <option key={u.id} value={u.id}>
+                    {u.firstName} {u.lastName} ({u.email})
+                  </option>
                 ))}
               </select>
             </div>
@@ -362,10 +534,30 @@ export default function DiveLogModal(props: Props) {
           <FormProvider {...form}>
             <SectionLabel>Dive Info</SectionLabel>
             <FormGrid cols={2}>
-              <Field<FormValues> name="location" label="Location" placeholder="e.g. Blue Hole, Dahab" rules={{ required: true }} />
-              <Field<FormValues> name="date" label="Date" type="date" rules={{ required: true }} />
-              <Field<FormValues> name="depth" label="Depth (ft)" placeholder="e.g. 60" rules={{ required: true }} />
-              <Field<FormValues> name="duration" label="Duration (min)" placeholder="e.g. 45" rules={{ required: true }} />
+              <Field<FormValues>
+                name="location"
+                label="Location"
+                placeholder="e.g. Blue Hole, Dahab"
+                rules={{ required: true }}
+              />
+              <Field<FormValues>
+                name="date"
+                label="Date"
+                type="date"
+                rules={{ required: true }}
+              />
+              <Field<FormValues>
+                name="depth"
+                label="Depth (ft)"
+                placeholder="e.g. 60"
+                rules={{ required: true }}
+              />
+              <Field<FormValues>
+                name="duration"
+                label="Duration (min)"
+                placeholder="e.g. 45"
+                rules={{ required: true }}
+              />
             </FormGrid>
 
             <SectionLabel>Location</SectionLabel>
@@ -384,11 +576,51 @@ export default function DiveLogModal(props: Props) {
             <FormGrid cols={2}>
               <SelectField name="diveType" label="Dive Type">
                 <option value="">— Select —</option>
-                {DIVE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {DIVE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
               </SelectField>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <Label htmlFor="buddyUserId">Buddy (Registered User)</Label>
+                <select
+                  id="buddyUserId"
+                  value={buddyUserIdState}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBuddyUserIdState(val);
+                    if (val) {
+                      const u = publicUsers.find((u) => String(u.id) === val);
+                      if (u) setValue("buddy", `${u.firstName} ${u.lastName}`, { shouldDirty: true });
+                    } else {
+                      setValue("buddy", "", { shouldDirty: true });
+                    }
+                  }}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #ccc",
+                    fontSize: 16,
+                    color: "#222",
+                    width: "100%",
+                    background: "white",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <option value="">— None —</option>
+                  {publicUsers
+                    .filter((u) => u.id !== currentUser.id)
+                    .map((u) => (
+                      <option key={u.id} value={String(u.id)}>
+                        {u.firstName} {u.lastName}
+                      </option>
+                    ))}
+                </select>
+              </div>
               <Field<FormValues>
                 name="buddy"
-                label="Buddy"
+                label="Buddy Name"
                 placeholder="Dive buddy name"
               />
               <Field<FormValues>
@@ -432,7 +664,11 @@ export default function DiveLogModal(props: Props) {
               />
               <SelectField name="cylinderType" label="Cylinder Type">
                 <option value="">— Select —</option>
-                {CYLINDER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {CYLINDER_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
               </SelectField>
               <Field<FormValues>
                 name="cylinderSize"
@@ -441,7 +677,11 @@ export default function DiveLogModal(props: Props) {
               />
               <SelectField name="gasMix" label="Gas Mix">
                 <option value="">— Select —</option>
-                {GAS_MIXES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {GAS_MIXES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
               </SelectField>
               <Field<FormValues>
                 name="o2Percent"
@@ -467,7 +707,8 @@ export default function DiveLogModal(props: Props) {
                   <option value="">— None —</option>
                   {certifications.map((c) => (
                     <option key={c.id} value={c.certName}>
-                      {c.certName}{c.agency ? ` (${c.agency})` : ""}
+                      {c.certName}
+                      {c.agency ? ` (${c.agency})` : ""}
                     </option>
                   ))}
                 </select>
@@ -482,7 +723,9 @@ export default function DiveLogModal(props: Props) {
                 render={() => (
                   <MarineLifeTags
                     value={marineLife}
-                    onChange={(v) => setValue("marineLife", v, { shouldDirty: true })}
+                    onChange={(v) =>
+                      setValue("marineLife", v, { shouldDirty: true })
+                    }
                     speciesSuggestions={speciesNames}
                   />
                 )}
@@ -508,12 +751,26 @@ export default function DiveLogModal(props: Props) {
           </FormProvider>
         </div>
 
-        <div style={{ display: "flex", gap: 10, padding: "16px 28px", borderTop: "1px solid #eee", justifyContent: "flex-end", flexShrink: 0 }}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            padding: "16px 28px",
+            borderTop: "1px solid #eee",
+            justifyContent: "flex-end",
+            flexShrink: 0,
+          }}
+        >
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
           <Button
             variant="success"
             onClick={handleSubmit}
-            disabled={!form.formState.isValid || (mode === "edit" && !form.formState.isDirty && !tagsChanged)}
+            disabled={
+              !form.formState.isValid ||
+              (mode === "edit" && !form.formState.isDirty && !buddyChanged)
+            }
           >
             {mode === "edit" ? "Save Changes" : "Save Dive"}
           </Button>

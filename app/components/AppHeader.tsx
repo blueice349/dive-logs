@@ -16,6 +16,7 @@ export default function AppHeader({ user }: { user: PublicUser }) {
   const router = useRouter();
   const pathname = usePathname();
   const [impersonating, setImpersonating] = useState<{ adminName: string } | null>(null);
+  const [buddyCount, setBuddyCount] = useState(0);
 
   useEffect(() => {
     fetch("/api/admin/impersonating")
@@ -36,6 +37,14 @@ export default function AppHeader({ user }: { user: PublicUser }) {
     }, 60_000);
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/buddy-requests/count").then((r) => r.ok ? r.json() : { count: 0 }).then((d) => setBuddyCount(d.count));
+    load();
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const handleLogout = async () => {
@@ -92,6 +101,7 @@ export default function AppHeader({ user }: { user: PublicUser }) {
         <nav className="header-nav" style={{ display: "flex", gap: 4, flex: 1 }}>
           {[...NAV_LINKS, ...(user.isAdmin ? [{ label: "Admin", href: "/admin" }] : [])].map(({ label, href }) => {
             const active = pathname === href;
+            const showBadge = label === "Dive Log" && buddyCount > 0;
             return (
               <button
                 key={href}
@@ -109,6 +119,11 @@ export default function AppHeader({ user }: { user: PublicUser }) {
                 }}
               >
                 {label}
+                {showBadge && (
+                  <span style={{ marginLeft: 5, background: "#f44336", color: "white", borderRadius: 10, fontSize: 11, fontWeight: 700, padding: "1px 6px", verticalAlign: "middle" }}>
+                    {buddyCount}
+                  </span>
+                )}
               </button>
             );
           })}

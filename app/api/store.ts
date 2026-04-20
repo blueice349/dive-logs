@@ -56,6 +56,14 @@ const dbReady = (async () => {
         certNumber TEXT,
         notes TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS buddy_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dive_log_id INTEGER NOT NULL,
+        from_user_id INTEGER NOT NULL,
+        to_user_id INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      )`,
     ],
     "write"
   );
@@ -75,6 +83,7 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN lat REAL",
     "ALTER TABLE dive_logs ADD COLUMN lng REAL",
     "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
+    "ALTER TABLE dive_logs ADD COLUMN buddyUserId INTEGER REFERENCES users(id)",
   ]) {
     try {
       await db.execute(sql);
@@ -142,7 +151,11 @@ export const listPublicUsers = async (): Promise<{ id: number; firstName: string
   const result = await db.execute(
     "SELECT id, firstName, lastName FROM users ORDER BY firstName, lastName"
   );
-  return result.rows as unknown as { id: number; firstName: string; lastName: string }[];
+  return result.rows.map((r) => ({
+    id: Number((r as Record<string, unknown>).id),
+    firstName: String((r as Record<string, unknown>).firstName),
+    lastName: String((r as Record<string, unknown>).lastName),
+  }));
 };
 
 export const listUsers = async (): Promise<Omit<User, "password">[]> => {
@@ -421,4 +434,75 @@ export const deleteSpecies = async (id: number): Promise<boolean> => {
   await dbReady;
   const res = await db.execute({ sql: "DELETE FROM species WHERE id = ?", args: [id] });
   return res.rowsAffected > 0;
+};
+
+// ── Buddy requests ────────────────────────────────────────────────────────────
+
+export type BuddyRequest = {
+  id: number;
+  dive_log_id: number;
+  from_user_id: number;
+  to_user_id: number;
+  status: string;
+  created_at: number;
+  location?: string;
+  date?: string;
+  depth?: number;
+  duration?: number;
+  fromFirstName?: string;
+  fromLastName?: string;
+};
+
+export const createBuddyRequest = async (
+  diveLogId: number,
+  fromUserId: number,
+  toUserId: number
+): Promise<void> => {
+  await dbReady;
+  const existing = await db.execute({
+    sql: "SELECT id FROM buddy_requests WHERE dive_log_id = ? AND to_user_id = ?",
+    args: [diveLogId, toUserId],
+  });
+  if (existing.rows.length > 0) return;
+  await db.execute({
+    sql: "INSERT INTO buddy_requests (dive_log_id, from_user_id, to_user_id) VALUES (?, ?, ?)",
+    args: [diveLogId, fromUserId, toUserId],
+  });
+};
+
+export const getPendingBuddyRequests = async (userId: number): Promise<BuddyRequest[]> => {
+  await dbReady;
+  const result = await db.execute({
+    sql: `SELECT br.*, dl.location, dl.date, dl.depth, dl.duration,
+            u.firstName AS fromFirstName, u.lastName AS fromLastName
+          FROM buddy_requests br
+          JOIN dive_logs dl ON dl.id = br.dive_log_id
+          JOIN users u ON u.id = br.from_user_id
+          WHERE br.to_user_id = ? AND br.status = 'pending'
+          ORDER BY br.created_at DESC`,
+    args: [userId],
+  });
+  return result.rows as unknown as BuddyRequest[];
+};
+
+export const updateBuddyRequest = async (
+  id: number,
+  toUserId: number,
+  status: "confirmed" | "declined"
+): Promise<boolean> => {
+  await dbReady;
+  const res = await db.execute({
+    sql: "UPDATE buddy_requests SET status = ? WHERE id = ? AND to_user_id = ?",
+    args: [status, id, toUserId],
+  });
+  return res.rowsAffected > 0;
+};
+
+export const countPendingBuddyRequests = async (userId: number): Promise<number> => {
+  await dbReady;
+  const result = await db.execute({
+    sql: "SELECT COUNT(*) as count FROM buddy_requests WHERE to_user_id = ? AND status = 'pending'",
+    args: [userId],
+  });
+  return Number((result.rows[0] as unknown as { count: number }).count);
 };

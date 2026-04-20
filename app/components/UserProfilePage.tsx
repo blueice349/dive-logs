@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "./AppHeader";
 import ConfirmModal from "./ConfirmModal";
@@ -173,6 +173,61 @@ function PasswordForm({ user }: { user: PublicUser }) {
   );
 }
 
+function SharingSection() {
+  const [enabled, setEnabled] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/profile/share")
+      .then((r) => r.ok ? r.json() : { enabled: false })
+      .then((d) => { if (d.enabled) { setEnabled(true); setShareUrl(d.url); } });
+  }, []);
+
+  const handleEnable = async () => {
+    const res = await fetch("/api/profile/share", { method: "POST" });
+    if (res.ok) { const d = await res.json(); setEnabled(true); setShareUrl(d.url); }
+  };
+
+  const handleDisable = async () => {
+    await fetch("/api/profile/share", { method: "DELETE" });
+    setEnabled(false);
+    setShareUrl("");
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Card>
+      <h2 style={{ marginTop: 0, fontSize: 20, color: "#1565c0" }}>Public Profile</h2>
+      <p style={{ color: "#555", marginBottom: 16, fontSize: 14 }}>
+        Share a read-only link to your dive profile — stats, certifications, and recent dives.
+      </p>
+      {!enabled ? (
+        <Button onClick={handleEnable}>Enable Sharing</Button>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              readOnly
+              value={shareUrl}
+              style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 13, color: "#333", background: "#f9f9f9" }}
+            />
+            <Button onClick={handleCopy}>{copied ? "Copied!" : "Copy Link"}</Button>
+          </div>
+          <div>
+            <Button variant="secondary" onClick={handleDisable}>Disable Sharing</Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 type Tab = "profile" | "certifications";
 
 export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
@@ -239,6 +294,7 @@ export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <ProfileForm user={user} />
             <PasswordForm user={user} />
+            <SharingSection />
 
             {/* Danger Zone */}
             <Card>

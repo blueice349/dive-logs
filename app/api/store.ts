@@ -75,6 +75,8 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN lat REAL",
     "ALTER TABLE dive_logs ADD COLUMN lng REAL",
     "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
+    "ALTER TABLE users ADD COLUMN share_token TEXT",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_share_token ON users(share_token)",
   ]) {
     try {
       await db.execute(sql);
@@ -421,4 +423,61 @@ export const deleteSpecies = async (id: number): Promise<boolean> => {
   await dbReady;
   const res = await db.execute({ sql: "DELETE FROM species WHERE id = ?", args: [id] });
   return res.rowsAffected > 0;
+};
+
+// ── Public profile / share token ──────────────────────────────────────────────
+
+export const generateShareToken = async (userId: number): Promise<string> => {
+  await dbReady;
+  const token = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("hex");
+  await db.execute({ sql: "UPDATE users SET share_token = ? WHERE id = ?", args: [token, userId] });
+  return token;
+};
+
+export const clearShareToken = async (userId: number): Promise<void> => {
+  await dbReady;
+  await db.execute({ sql: "UPDATE users SET share_token = NULL WHERE id = ?", args: [userId] });
+};
+
+export const getShareTokenForUser = async (userId: number): Promise<string | null> => {
+  await dbReady;
+  const result = await db.execute({ sql: "SELECT share_token FROM users WHERE id = ?", args: [userId] });
+  return (result.rows[0] as unknown as { share_token: string | null })?.share_token ?? null;
+};
+
+export type PublicProfile = {
+  user: { firstName: string; lastName: string };
+  stats: { totalDives: number; deepestDive: number; longestDive: number; uniqueLocations: number };
+  certifications: { certName: string; agency?: string; certDate?: string }[];
+  recentDives: { location: string; date: string; depth: number; duration: number; diveType?: string }[];
+};
+
+export const getPublicProfile = async (token: string): Promise<PublicProfile | null> => {
+  await dbReady;
+  const userRow = await db.execute({ sql: "SELECT id, firstName, lastName FROM users WHERE share_token = ?", args: [token] });
+  if (!userRow.rows[0]) return null;
+  const u = userRow.rows[0] as unknown as { id: number; firstName: string; lastName: string };
+
+  const [statsRow, certs, recentDives] = await Promise.all([
+    db.execute({
+      sql: "SELECT COUNT(*) as total, MAX(depth) as deepest, MAX(duration) as longest, COUNT(DISTINCT location) as locations FROM dive_logs WHERE userId = ?",
+      args: [u.id],
+    }),
+    db.execute({ sql: "SELECT certName, agency, certDate FROM certifications WHERE userId = ? ORDER BY certDate DESC", args: [u.id] }),
+    db.execute({ sql: "SELECT location, date, depth, duration, diveType FROM dive_logs WHERE userId = ? ORDER BY date DESC LIMIT 10", args: [u.id] }),
+  ]);
+
+  const s = statsRow.rows[0] as unknown as { total: number; deepest: number; longest: number; locations: number };
+  return {
+    user: { firstName: u.firstName, lastName: u.lastName },
+    stats: { totalDives: Number(s.total), deepestDive: Number(s.deepest ?? 0), longestDive: Number(s.longest ?? 0), uniqueLocations: Number(s.locations) },
+    certifications: certs.rows.map((r) => {
+      const c = r as unknown as { certName: string; agency: string | null; certDate: string | null };
+      return { certName: c.certName, agency: c.agency ?? undefined, certDate: c.certDate ?? undefined };
+    }),
+    recentDives: recentDives.rows.map((r) => {
+      const d = r as unknown as { location: string; date: string; depth: number; duration: number; diveType: string | null };
+      return { location: d.location, date: d.date, depth: Number(d.depth), duration: Number(d.duration), diveType: d.diveType ?? undefined };
+    }),
+  };
 };

@@ -58,11 +58,11 @@ const dbReady = (async () => {
       )`,
       `CREATE TABLE IF NOT EXISTS dive_photos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        dive_log_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        photo_data TEXT NOT NULL,
+        diveLogId INTEGER NOT NULL REFERENCES dive_logs(id) ON DELETE CASCADE,
+        userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        photoData TEXT NOT NULL,
         caption TEXT,
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )`,
     ],
     "write"
@@ -83,12 +83,46 @@ const dbReady = (async () => {
     "ALTER TABLE dive_logs ADD COLUMN lat REAL",
     "ALTER TABLE dive_logs ADD COLUMN lng REAL",
     "ALTER TABLE dive_logs ADD COLUMN marineLife TEXT",
+    "ALTER TABLE dive_photos RENAME COLUMN dive_log_id TO diveLogId",
+    "ALTER TABLE dive_photos RENAME COLUMN user_id TO userId",
+    "ALTER TABLE dive_photos RENAME COLUMN photo_data TO photoData",
+    "ALTER TABLE dive_photos RENAME COLUMN created_at TO createdAt",
   ]) {
     try {
       await db.execute(sql);
     } catch {
       // Column already exists — nothing to do
     }
+  }
+
+  // Recreate dive_photos with FK constraints if they are missing (SQLite cannot ADD CONSTRAINT)
+  try {
+    await db.batch(
+      [
+        `CREATE TABLE IF NOT EXISTS dive_photos_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          diveLogId INTEGER NOT NULL REFERENCES dive_logs(id) ON DELETE CASCADE,
+          userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          photoData TEXT NOT NULL,
+          caption TEXT,
+          createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        )`,
+        `INSERT OR IGNORE INTO dive_photos_new (id, diveLogId, userId, photoData, caption, createdAt)
+         SELECT id, diveLogId, userId, photoData, caption, createdAt FROM dive_photos`,
+        `DROP TABLE dive_photos`,
+        `ALTER TABLE dive_photos_new RENAME TO dive_photos`,
+      ],
+      "write"
+    );
+  } catch {
+    // Already migrated — dive_photos already has FK constraints or dive_photos_new doesn't exist
+  }
+
+  // Enable FK enforcement (not supported in all libsql modes)
+  try {
+    await db.execute("PRAGMA foreign_keys = ON");
+  } catch {
+    // Turso remote mode may not support this pragma
   }
 
   // Seed default species
@@ -258,6 +292,15 @@ export const getDiveLogsForUser = async (userId: number): Promise<DiveLog[]> => 
     args: [userId],
   });
   return result.rows as unknown as DiveLog[];
+};
+
+export const userOwnsDiveLog = async (userId: number, diveLogId: number): Promise<boolean> => {
+  await dbReady;
+  const result = await db.execute({
+    sql: "SELECT 1 FROM dive_logs WHERE id = ? AND userId = ?",
+    args: [diveLogId, userId],
+  });
+  return result.rows.length > 0;
 };
 
 export const insertDiveLog = async (log: DiveLogBase, userId: number): Promise<DiveLog> => {
@@ -435,17 +478,17 @@ export const deleteSpecies = async (id: number): Promise<boolean> => {
 
 export type DivePhoto = {
   id: number;
-  dive_log_id: number;
-  user_id: number;
-  photo_data: string;
+  diveLogId: number;
+  userId: number;
+  photoData: string;
   caption?: string;
-  created_at: number;
+  createdAt: number;
 };
 
 export const listDivePhotos = async (diveLogId: number): Promise<DivePhoto[]> => {
   await dbReady;
   const result = await db.execute({
-    sql: "SELECT * FROM dive_photos WHERE dive_log_id = ? ORDER BY created_at ASC",
+    sql: "SELECT * FROM dive_photos WHERE diveLogId = ? ORDER BY createdAt ASC",
     args: [diveLogId],
   });
   return result.rows as unknown as DivePhoto[];
@@ -459,7 +502,7 @@ export const insertDivePhoto = async (
 ): Promise<DivePhoto> => {
   await dbReady;
   const result = await db.execute({
-    sql: "INSERT INTO dive_photos (dive_log_id, user_id, photo_data, caption) VALUES (?, ?, ?, ?)",
+    sql: "INSERT INTO dive_photos (diveLogId, userId, photoData, caption) VALUES (?, ?, ?, ?)",
     args: [diveLogId, userId, photoData, caption ?? null],
   });
   const inserted = await db.execute({
@@ -469,10 +512,21 @@ export const insertDivePhoto = async (
   return inserted.rows[0] as unknown as DivePhoto;
 };
 
+export const updateDivePhotoCaption = async (id: number, userId: number, caption: string): Promise<DivePhoto | null> => {
+  await dbReady;
+  const res = await db.execute({
+    sql: "UPDATE dive_photos SET caption = ? WHERE id = ? AND userId = ?",
+    args: [caption || null, id, userId],
+  });
+  if (res.rowsAffected === 0) return null;
+  const updated = await db.execute({ sql: "SELECT * FROM dive_photos WHERE id = ?", args: [id] });
+  return updated.rows[0] ? (updated.rows[0] as unknown as DivePhoto) : null;
+};
+
 export const deleteDivePhoto = async (id: number, userId: number): Promise<boolean> => {
   await dbReady;
   const res = await db.execute({
-    sql: "DELETE FROM dive_photos WHERE id = ? AND user_id = ?",
+    sql: "DELETE FROM dive_photos WHERE id = ? AND userId = ?",
     args: [id, userId],
   });
   return res.rowsAffected > 0;

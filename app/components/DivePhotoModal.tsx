@@ -6,11 +6,11 @@ import { type DiveLog } from "@/app/api/logs/data";
 
 type DivePhoto = {
   id: number;
-  dive_log_id: number;
-  user_id: number;
-  photo_data: string;
+  diveLogId: number;
+  userId: number;
+  photoData: string;
   caption?: string;
-  created_at: number;
+  createdAt: number;
 };
 
 export default function DivePhotoModal({
@@ -32,6 +32,10 @@ export default function DivePhotoModal({
   const [pendingFile, setPendingFile] = useState<string | null>(null);
   const [pendingFileName, setPendingFileName] = useState<string>("");
   const [sizeWarning, setSizeWarning] = useState(false);
+  const [typeError, setTypeError] = useState<string | null>(null);
+  const [editingCaptionId, setEditingCaptionId] = useState<number | null>(null);
+  const [editingCaptionText, setEditingCaptionText] = useState("");
+  const [savingCaption, setSavingCaption] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -53,19 +57,21 @@ export default function DivePhotoModal({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+    if (!file.type.startsWith("image/") || file.type === "image/svg+xml") {
+      setTypeError("Please select a valid image file (JPEG, PNG, WebP, etc.). SVG is not allowed.");
+      return;
+    }
+    setTypeError(null);
     setSizeWarning(file.size > 5 * 1024 * 1024);
     setPendingFileName(file.name);
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result;
-      if (typeof result === "string") {
-        setPendingFile(result);
-      }
+      if (typeof result === "string") setPendingFile(result);
     };
     reader.readAsDataURL(file);
-    // Reset file input so the same file can be re-selected
-    e.target.value = "";
   };
 
   const handleUpload = async () => {
@@ -91,6 +97,25 @@ export default function DivePhotoModal({
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleSaveCaption = async (photo: DivePhoto) => {
+    setSavingCaption(true);
+    const res = await fetch(`/api/logs/${dive.id}/photos?photoId=${photo.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caption: editingCaptionText }),
+    });
+    if (res.ok) {
+      const updated: DivePhoto = await res.json();
+      setPhotos((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      if (lightbox?.id === updated.id) setLightbox(updated);
+      setEditingCaptionId(null);
+    } else {
+      const { error } = await res.json().catch(() => ({ error: null }));
+      alert(error ?? "Failed to save caption.");
+    }
+    setSavingCaption(false);
   };
 
   const handleDelete = async (photo: DivePhoto) => {
@@ -204,6 +229,20 @@ export default function DivePhotoModal({
                     style={{ display: "none" }}
                     onChange={handleFileChange}
                   />
+                  {typeError && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#c62828",
+                        background: "#ffebee",
+                        borderRadius: 4,
+                        padding: "4px 8px",
+                        marginTop: 8,
+                      }}
+                    >
+                      {typeError}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div>
@@ -250,6 +289,8 @@ export default function DivePhotoModal({
                           borderRadius: 6,
                           boxSizing: "border-box",
                           marginBottom: 8,
+                          background: "white",
+                          color: "#333",
                         }}
                       />
                       <div style={{ display: "flex", gap: 8 }}>
@@ -265,6 +306,7 @@ export default function DivePhotoModal({
                             setPendingFileName("");
                             setCaptionInput("");
                             setSizeWarning(false);
+                            setTypeError(null);
                           }}
                         >
                           Cancel
@@ -312,7 +354,7 @@ export default function DivePhotoModal({
                     }}
                   >
                     <img
-                      src={photo.photo_data}
+                      src={photo.photoData}
                       alt={photo.caption ?? "Dive photo"}
                       onClick={() => setLightbox(photo)}
                       style={{
@@ -324,7 +366,7 @@ export default function DivePhotoModal({
                         cursor: "pointer",
                       }}
                     />
-                    {(photo.user_id === currentUserId || isAdmin === 1) && (
+                    {(photo.userId === currentUserId || isAdmin === 1) && (
                       <button
                         onClick={() => handleDelete(photo)}
                         title="Delete photo"
@@ -349,19 +391,61 @@ export default function DivePhotoModal({
                         ×
                       </button>
                     )}
-                    {photo.caption && (
-                      <div
-                        style={{
-                          padding: "6px 8px",
-                          fontSize: 12,
-                          color: "#555",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {photo.caption}
-                      </div>
+                    {(photo.userId === currentUserId || isAdmin === 1) && (
+                      editingCaptionId === photo.id ? (
+                        <div style={{ padding: "6px 8px", display: "flex", gap: 4 }}>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingCaptionText}
+                            onChange={(e) => setEditingCaptionText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveCaption(photo);
+                              if (e.key === "Escape") setEditingCaptionId(null);
+                            }}
+                            maxLength={500}
+                            style={{
+                              flex: 1,
+                              fontSize: 12,
+                              padding: "2px 6px",
+                              border: "1px solid #aaa",
+                              borderRadius: 4,
+                              background: "white",
+                              color: "#333",
+                            }}
+                          />
+                          <button
+                            onClick={() => handleSaveCaption(photo)}
+                            disabled={savingCaption}
+                            style={{ fontSize: 11, padding: "2px 6px", cursor: "pointer", borderRadius: 4, border: "1px solid #1565c0", background: "#1565c0", color: "white" }}
+                          >
+                            {savingCaption ? "…" : "Save"}
+                          </button>
+                          <button
+                            onClick={() => setEditingCaptionId(null)}
+                            style={{ fontSize: 11, padding: "2px 6px", cursor: "pointer", borderRadius: 4, border: "1px solid #ccc", background: "white", color: "#333" }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => { setEditingCaptionId(photo.id); setEditingCaptionText(photo.caption ?? ""); }}
+                          title="Click to edit caption"
+                          style={{
+                            padding: "6px 8px",
+                            fontSize: 12,
+                            color: photo.caption ? "#555" : "#aaa",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            cursor: "text",
+                            minHeight: 24,
+                          }}
+                        >
+                          {photo.caption || "Add caption…"}
+                        </div>
+                      )
                     )}
                   </div>
                 ))}
@@ -388,7 +472,7 @@ export default function DivePhotoModal({
           }}
         >
           <img
-            src={lightbox.photo_data}
+            src={lightbox.photoData}
             alt={lightbox.caption ?? "Dive photo"}
             onClick={(e) => e.stopPropagation()}
             style={{

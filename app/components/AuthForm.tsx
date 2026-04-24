@@ -23,6 +23,22 @@ const registerSchema = authSchema.keys({
     .messages({ "any.only": "Passwords must match" }),
 });
 
+function Spinner() {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: 16,
+        height: 16,
+        border: "2px solid rgba(255,255,255,0.4)",
+        borderTopColor: "#fff",
+        borderRadius: "50%",
+        animation: "spin 0.7s linear infinite",
+      }}
+    />
+  );
+}
+
 const backdrop = {
   minHeight: "100vh",
   backgroundImage:
@@ -42,6 +58,8 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
     mode: "onChange",
     resolver: joiResolver(loginSchema),
   });
+
+  const { isSubmitting, isValid } = form.formState;
 
   const handleSubmit = form.handleSubmit(async (data: LoginFormValues) => {
     const res = await fetch("/api/login", {
@@ -70,10 +88,10 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
           </FormGrid>
         </FormProvider>
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-          <Button variant="success" onClick={handleSubmit} disabled={!form.formState.isValid}>
-            Login
+          <Button variant="success" onClick={handleSubmit} disabled={!isValid || isSubmitting}>
+            {isSubmitting ? <Spinner /> : "Login"}
           </Button>
-          <Button variant="secondary" onClick={onSwitch}>
+          <Button variant="secondary" onClick={onSwitch} disabled={isSubmitting}>
             Switch to Register
           </Button>
         </div>
@@ -89,6 +107,8 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
     mode: "onChange",
     resolver: joiResolver(registerSchema),
   });
+
+  const { isSubmitting, isValid } = form.formState;
 
   const handleSubmit = form.handleSubmit(async (data: RegisterFormValues) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -125,10 +145,10 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
           </FormGrid>
         </FormProvider>
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-          <Button variant="success" onClick={handleSubmit} disabled={!form.formState.isValid}>
-            Register
+          <Button variant="success" onClick={handleSubmit} disabled={!isValid || isSubmitting}>
+            {isSubmitting ? <Spinner /> : "Register"}
           </Button>
-          <Button variant="secondary" onClick={onSwitch}>
+          <Button variant="secondary" onClick={onSwitch} disabled={isSubmitting}>
             Switch to Login
           </Button>
         </div>

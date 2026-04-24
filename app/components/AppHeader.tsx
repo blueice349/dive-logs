@@ -18,6 +18,7 @@ export default function AppHeader({ user }: { user: PublicUser }) {
   const [impersonating, setImpersonating] = useState<{
     adminName: string;
   } | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/impersonating")
@@ -44,6 +45,7 @@ export default function AppHeader({ user }: { user: PublicUser }) {
   }, []);
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     await fetch("/api/logout", { method: "POST" });
     router.push("/login");
   };
@@ -169,6 +171,7 @@ export default function AppHeader({ user }: { user: PublicUser }) {
             </span>
             <button
               onClick={handleLogout}
+              disabled={loggingOut}
               style={{
                 background: "rgba(255,255,255,0.15)",
                 border: "1px solid rgba(255,255,255,0.3)",
@@ -176,7 +179,11 @@ export default function AppHeader({ user }: { user: PublicUser }) {
                 color: "white",
                 fontSize: 14,
                 padding: "5px 14px",
-                cursor: "pointer",
+                cursor: loggingOut ? "default" : "pointer",
+                opacity: loggingOut ? 0.7 : 1,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
               }}
             >
               {loggingOut && (

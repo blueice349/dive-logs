@@ -4,24 +4,27 @@ import { useEffect, useState } from "react";
 import { Card, Button } from "@/components/ui/form";
 import { type DiveLog } from "@/app/api/logs/data";
 import { type PublicUser } from "@/app/types/user";
-import AppHeader from "./AppHeader";
 import DiveLogModal from "./DiveLogModal";
 import ConfirmModal from "./ConfirmModal";
 import ExportPDFButton from "./ExportPDFButton";
+import Spinner from "./Spinner";
 
 type Filter = "mine" | "all";
 
 export default function DiveLogPage({ user }: { user: PublicUser }) {
   const [logs, setLogs] = useState<DiveLog[]>([]);
   const [filter, setFilter] = useState<Filter>("mine");
+  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingLog, setEditingLog] = useState<DiveLog | null>(null);
   const [deletingLog, setDeletingLog] = useState<DiveLog | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     const url = filter === "all" ? "/api/logs?filter=all" : "/api/logs";
     fetch(url).then((r) => {
-      if (r.ok) r.json().then(setLogs);
+      if (r.ok) r.json().then((data) => { setLogs(data); setLoading(false); });
+      else setLoading(false);
     });
   }, [filter]);
 
@@ -60,9 +63,7 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
   };
 
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
-      <AppHeader user={user} />
-
+    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "calc(100vh - 56px)", background: "#f0f4f8" }}>
       <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
         <div
           className="dive-log-toolbar"
@@ -95,6 +96,7 @@ export default function DiveLogPage({ user }: { user: PublicUser }) {
           </div>
         </div>
 
+        {loading && <Spinner />}
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {logs.map((log) => (
             <li key={log.id}>

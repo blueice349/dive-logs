@@ -11,13 +11,13 @@ export default function Spinner({ size = 32 }: { size?: number }) {
       }}
     >
       <div
+        className="animate-spin"
         style={{
           width: size,
           height: size,
           border: `3px solid #e0e0e0`,
           borderTop: `3px solid #1565c0`,
           borderRadius: "50%",
-          animation: "spin 0.75s linear infinite",
         }}
       />
     </div>

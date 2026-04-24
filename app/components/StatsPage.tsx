@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { type DiveLog } from "@/app/api/logs/data";
 import { type PublicUser } from "@/app/types/user";
-import AppHeader from "./AppHeader";
 import Spinner from "./Spinner";
 import { Card } from "@/components/ui/form";
 
@@ -58,8 +57,7 @@ export default function StatsPage({ user }: { user: PublicUser }) {
 
   if (loading || logs.length === 0) {
     return (
-      <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
-        <AppHeader user={user} />
+      <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "calc(100vh - 56px)", background: "#f0f4f8" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
           <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>My Dive Stats</h1>
           {toggle}
@@ -118,8 +116,7 @@ export default function StatsPage({ user }: { user: PublicUser }) {
   const avgTemp = tempLogs.length ? tempLogs.reduce((s, l) => s + l.waterTemp!, 0) / tempLogs.length : null;
 
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
-      <AppHeader user={user} />
+    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "calc(100vh - 56px)", background: "#f0f4f8" }}>
       <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
         <h1 style={{ margin: "0 0 20px", fontSize: 28 }}>
           {filter === "all" ? "All Divers Stats" : "My Dive Stats"}

@@ -23,6 +23,22 @@ const registerSchema = authSchema.keys({
     .messages({ "any.only": "Passwords must match" }),
 });
 
+function Spinner() {
+  return (
+    <span
+      className="animate-spin"
+      style={{
+        display: "inline-block",
+        width: 16,
+        height: 16,
+        border: "2px solid rgba(255,255,255,0.4)",
+        borderTopColor: "#fff",
+        borderRadius: "50%",
+      }}
+    />
+  );
+}
+
 const backdrop = {
   minHeight: "100vh",
   backgroundImage:
@@ -52,7 +68,9 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
     if (res.ok) {
       router.push("/dive-log");
     } else {
-      const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
+      const { error } = await res
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
       alert(error ?? "Authentication failed.");
     }
   });
@@ -60,17 +78,39 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   return (
     <div style={backdrop}>
       <Card>
-        <h2 style={{ textAlign: "center", fontSize: 24, marginTop: 0, color: "#1976d2" }}>
+        <h2
+          style={{
+            textAlign: "center",
+            fontSize: 24,
+            marginTop: 0,
+            color: "#1976d2",
+          }}
+        >
           Login
         </h2>
         <FormProvider {...form}>
           <FormGrid cols={1}>
-            <Field<LoginFormValues> name="email" label="Email" placeholder="Email" rules={{ required: true }} />
-            <Field<LoginFormValues> name="password" label="Password" type="password" placeholder="Password" rules={{ required: true }} />
+            <Field<LoginFormValues>
+              name="email"
+              label="Email"
+              placeholder="Email"
+              rules={{ required: true }}
+            />
+            <Field<LoginFormValues>
+              name="password"
+              label="Password"
+              type="password"
+              placeholder="Password"
+              rules={{ required: true }}
+            />
           </FormGrid>
         </FormProvider>
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-          <Button variant="success" onClick={handleSubmit} disabled={!form.formState.isValid}>
+          <Button
+            variant="success"
+            onClick={handleSubmit}
+            disabled={!form.formState.isValid}
+          >
             Login
           </Button>
           <Button variant="secondary" onClick={onSwitch}>
@@ -85,7 +125,14 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   const router = useRouter();
   const form = useForm<RegisterFormValues>({
-    defaultValues: { email: "", password: "", firstName: "", lastName: "", phone: "", confirmPassword: "" },
+    defaultValues: {
+      email: "",
+      password: "",
+      firstName: "",
+      lastName: "",
+      phone: "",
+      confirmPassword: "",
+    },
     mode: "onChange",
     resolver: joiResolver(registerSchema),
   });
@@ -101,7 +148,9 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
     if (res.ok) {
       router.push("/dive-log");
     } else {
-      const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
+      const { error } = await res
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
       alert(error ?? "Authentication failed.");
     }
   });
@@ -109,23 +158,67 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   return (
     <div style={backdrop}>
       <Card>
-        <h2 style={{ textAlign: "center", fontSize: 24, marginTop: 0, color: "#1976d2" }}>
+        <h2
+          style={{
+            textAlign: "center",
+            fontSize: 24,
+            marginTop: 0,
+            color: "#1976d2",
+          }}
+        >
           Register
         </h2>
         <FormProvider {...form}>
           <FormGrid cols={1}>
             <FormGrid cols={2}>
-              <Field<RegisterFormValues> name="firstName" label="First Name" placeholder="First Name" rules={{ required: true }} />
-              <Field<RegisterFormValues> name="lastName" label="Last Name" placeholder="Last Name" rules={{ required: true }} />
+              <Field<RegisterFormValues>
+                name="firstName"
+                label="First Name"
+                placeholder="First Name"
+                rules={{ required: true }}
+              />
+              <Field<RegisterFormValues>
+                name="lastName"
+                label="Last Name"
+                placeholder="Last Name"
+                rules={{ required: true }}
+              />
             </FormGrid>
-            <Field<RegisterFormValues> name="phone" label="Phone Number" placeholder="e.g. 555-867-5309" type="tel" rules={{ required: true }} />
-            <Field<RegisterFormValues> name="email" label="Email" placeholder="Email" rules={{ required: true }} />
-            <Field<RegisterFormValues> name="password" label="Password" type="password" placeholder="Password" rules={{ required: true }} />
-            <Field<RegisterFormValues> name="confirmPassword" label="Confirm Password" type="password" placeholder="Confirm Password" rules={{ required: true }} />
+            <Field<RegisterFormValues>
+              name="phone"
+              label="Phone Number"
+              placeholder="e.g. 555-867-5309"
+              type="tel"
+              rules={{ required: true }}
+            />
+            <Field<RegisterFormValues>
+              name="email"
+              label="Email"
+              placeholder="Email"
+              rules={{ required: true }}
+            />
+            <Field<RegisterFormValues>
+              name="password"
+              label="Password"
+              type="password"
+              placeholder="Password"
+              rules={{ required: true }}
+            />
+            <Field<RegisterFormValues>
+              name="confirmPassword"
+              label="Confirm Password"
+              type="password"
+              placeholder="Confirm Password"
+              rules={{ required: true }}
+            />
           </FormGrid>
         </FormProvider>
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-          <Button variant="success" onClick={handleSubmit} disabled={!form.formState.isValid}>
+          <Button
+            variant="success"
+            onClick={handleSubmit}
+            disabled={!form.formState.isValid}
+          >
             Register
           </Button>
           <Button variant="secondary" onClick={onSwitch}>

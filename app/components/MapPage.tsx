@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { type DiveLog } from "@/app/api/logs/data";
 import { type PublicUser } from "@/app/types/user";
-import AppHeader from "./AppHeader";
 import Spinner from "./Spinner";
 import "leaflet/dist/leaflet.css";
 
@@ -97,12 +96,10 @@ export default function MapPage({ user }: { user: PublicUser }) {
     <main
       style={{
         fontFamily: "system-ui, sans-serif",
-        minHeight: "100vh",
+        minHeight: "calc(100vh - 56px)",
         background: "#f0f4f8",
       }}
     >
-      <AppHeader user={user} />
-
       {/* Hero map — full width */}
       <div style={{ position: "relative", height: 480, background: "#0d47a1" }}>
         {/* Always keep DiveMap mounted to avoid Leaflet _leaflet_pos errors on remount */}

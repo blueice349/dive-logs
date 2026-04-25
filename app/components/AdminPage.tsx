@@ -9,7 +9,6 @@ import { type PublicUser } from "@/app/types/user";
 import { profileSchema, type ProfileValues } from "@/app/api/users/data";
 import { passwordRule } from "@/app/lib/auth";
 import Joi from "joi";
-import AppHeader from "./AppHeader";
 import ConfirmModal from "./ConfirmModal";
 import Spinner from "./Spinner";
 
@@ -467,13 +466,12 @@ export default function AdminPage({ currentUser }: { currentUser: PublicUser }) 
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "impersonate" }),
     });
-    if (res.ok) router.push("/dive-log");
+    if (res.ok) { router.push("/dive-log"); router.refresh(); }
     else { const { error } = await res.json().catch(() => ({ error: "Failed" })); alert(error ?? "Failed to impersonate user."); }
   };
 
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
-      <AppHeader user={currentUser} />
+    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "calc(100vh - 56px)", background: "#f0f4f8" }}>
       <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h1 style={{ margin: 0, fontSize: 28 }}>All Users</h1>

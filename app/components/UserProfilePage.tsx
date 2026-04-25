@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import AppHeader from "./AppHeader";
 import ConfirmModal from "./ConfirmModal";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
@@ -213,9 +212,7 @@ export default function PublicUserProfilePage({ user }: { user: PublicUser }) {
   });
 
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f0f4f8" }}>
-      <AppHeader user={user} />
-
+    <main style={{ fontFamily: "system-ui, sans-serif", minHeight: "calc(100vh - 56px)", background: "#f0f4f8" }}>
       <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
         <h1 style={{ margin: "0 0 16px", fontSize: 28 }}>My Profile</h1>
 

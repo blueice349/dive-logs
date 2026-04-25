@@ -466,7 +466,7 @@ export default function AdminPage({ currentUser }: { currentUser: PublicUser }) 
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "impersonate" }),
     });
-    if (res.ok) router.push("/dive-log");
+    if (res.ok) { router.push("/dive-log"); router.refresh(); }
     else { const { error } = await res.json().catch(() => ({ error: "Failed" })); alert(error ?? "Failed to impersonate user."); }
   };
 

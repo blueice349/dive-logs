@@ -24,10 +24,11 @@ export default function AppHeader({ user }: { user: PublicUser }) {
     fetch("/api/admin/impersonating")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data?.impersonating)
-          setImpersonating({ adminName: data.adminName });
+        setImpersonating(
+          data?.impersonating ? { adminName: data.adminName } : null
+        );
       });
-  }, []);
+  }, [pathname]);
 
   const handleStopImpersonating = async () => {
     await fetch("/api/admin/unimpersonate", { method: "POST" });

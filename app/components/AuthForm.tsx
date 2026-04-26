@@ -81,20 +81,22 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
         <h2 style={{ textAlign: "center", fontSize: 24, marginTop: 0, color: "#1976d2" }}>
           Login
         </h2>
-        <FormProvider {...form}>
-          <FormGrid cols={1}>
-            <Field<LoginFormValues> name="email" label="Email" placeholder="Email" rules={{ required: true }} />
-            <Field<LoginFormValues> name="password" label="Password" type="password" placeholder="Password" rules={{ required: true }} />
-          </FormGrid>
-        </FormProvider>
-        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-          <Button variant="success" onClick={handleSubmit} disabled={!isValid || isSubmitting}>
-            {isSubmitting ? <Spinner /> : "Login"}
-          </Button>
-          <Button variant="secondary" onClick={onSwitch} disabled={isSubmitting}>
-            Switch to Register
-          </Button>
-        </div>
+        <form onSubmit={handleSubmit}>
+          <FormProvider {...form}>
+            <FormGrid cols={1}>
+              <Field<LoginFormValues> name="email" label="Email" placeholder="Email" rules={{ required: true }} />
+              <Field<LoginFormValues> name="password" label="Password" type="password" placeholder="Password" rules={{ required: true }} />
+            </FormGrid>
+          </FormProvider>
+          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+            <Button type="submit" variant="success" disabled={!isValid || isSubmitting}>
+              {isSubmitting ? <Spinner /> : "Login"}
+            </Button>
+            <Button variant="secondary" onClick={onSwitch} disabled={isSubmitting}>
+              Switch to Register
+            </Button>
+          </div>
+        </form>
       </Card>
     </div>
   );

@@ -429,9 +429,16 @@ export const deleteSpecies = async (id: number): Promise<boolean> => {
 
 export const generateShareToken = async (userId: number): Promise<string> => {
   await dbReady;
-  const token = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("hex");
-  await db.execute({ sql: "UPDATE users SET share_token = ? WHERE id = ?", args: [token, userId] });
-  return token;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const token = crypto.randomUUID().replace(/-/g, "");
+    try {
+      await db.execute({ sql: "UPDATE users SET share_token = ? WHERE id = ?", args: [token, userId] });
+      return token;
+    } catch {
+      // unique constraint collision — try again
+    }
+  }
+  throw new Error("Failed to generate a unique share token");
 };
 
 export const clearShareToken = async (userId: number): Promise<void> => {
@@ -454,7 +461,7 @@ export type PublicProfile = {
 
 export const getPublicProfile = async (token: string): Promise<PublicProfile | null> => {
   await dbReady;
-  const userRow = await db.execute({ sql: "SELECT id, firstName, lastName FROM users WHERE share_token = ?", args: [token] });
+  const userRow = await db.execute({ sql: "SELECT id, firstName, lastName FROM users WHERE share_token = ? AND isActive = 1", args: [token] });
   if (!userRow.rows[0]) return null;
   const u = userRow.rows[0] as unknown as { id: number; firstName: string; lastName: string };
 

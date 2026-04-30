@@ -7,6 +7,7 @@ import ConfirmModal from "./ConfirmModal";
 import { useForm, FormProvider } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Field, Card, Button, FormGrid } from "@/components/ui/form";
+import Spinner from "./Spinner";
 import { type PublicUser } from "@/app/types/user";
 import { profileSchema, passwordSchema, type ProfileValues, type PasswordValues } from "@/app/api/users/data";
 import Joi from "joi";
@@ -177,28 +178,37 @@ function SharingSection() {
   const [enabled, setEnabled] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     fetch("/api/profile/share")
       .then((r) => r.ok ? r.json() : { enabled: false })
-      .then((d) => { if (d.enabled) { setEnabled(true); setShareUrl(d.url); } });
+      .then((d) => { if (d.enabled) { setEnabled(true); setShareUrl(window.location.origin + d.path); } });
   }, []);
 
   const handleEnable = async () => {
+    setToggling(true);
     const res = await fetch("/api/profile/share", { method: "POST" });
-    if (res.ok) { const d = await res.json(); setEnabled(true); setShareUrl(d.url); }
+    if (res.ok) { const d = await res.json(); setEnabled(true); setShareUrl(window.location.origin + d.path); }
+    setToggling(false);
   };
 
   const handleDisable = async () => {
+    setToggling(true);
     await fetch("/api/profile/share", { method: "DELETE" });
     setEnabled(false);
     setShareUrl("");
+    setToggling(false);
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert("Could not copy to clipboard. Please copy the link manually.");
+    }
   };
 
   return (
@@ -208,19 +218,25 @@ function SharingSection() {
         Share a read-only link to your dive profile — stats, certifications, and recent dives.
       </p>
       {!enabled ? (
-        <Button onClick={handleEnable}>Enable Sharing</Button>
+        <Button onClick={handleEnable} disabled={toggling}>
+          {toggling ? <Spinner size={16} inline /> :"Enable Sharing"}
+        </Button>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", gap: 8 }}>
             <input
               readOnly
+              id="share-url"
+              aria-label="Public share link"
               value={shareUrl}
               style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", fontSize: 13, color: "#333", background: "#f9f9f9" }}
             />
             <Button onClick={handleCopy}>{copied ? "Copied!" : "Copy Link"}</Button>
           </div>
           <div>
-            <Button variant="secondary" onClick={handleDisable}>Disable Sharing</Button>
+            <Button variant="secondary" onClick={handleDisable} disabled={toggling}>
+              {toggling ? <Spinner size={16} inline /> :"Disable Sharing"}
+            </Button>
           </div>
         </div>
       )}
